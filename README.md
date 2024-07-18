@@ -1,2 +1,2 @@
-# RPG
+# Sidescroller Survival Game
 sidescroller thing
