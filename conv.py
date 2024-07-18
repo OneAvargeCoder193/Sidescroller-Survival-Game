@@ -1,6 +1,6 @@
 from PIL import Image, ImageDraw
 
-old = Image.open("olddirt.png")
+old = Image.open("stone.png")
 
 img = Image.new("RGBA", (160, 4))
 
@@ -51,4 +51,4 @@ for i in range(40):
     o = old.crop([i * 4, 0, i * 4 + 4, 4])
     img.paste(o, [table[i] * 4, 0])
 
-img.save("dirt.png", "PNG")
+img.save("stone.png", "PNG")

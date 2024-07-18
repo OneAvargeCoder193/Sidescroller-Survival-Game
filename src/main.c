@@ -90,8 +90,9 @@ int main(int argc, char* argv[]) {
     
     arrput(blocks, create_block(NULL, NULL, true, false));
     arrput(blocks, create_block(loadTexture("res/textures/grass.png", true), loadTexture("res/textures/grass_foliage.png", true), false, true));
-    arrput(blocks, create_block(loadTexture("res/textures/dirt.png", true), NULL, false, true));
+    arrput(blocks, create_block(loadTexture("res/textures/dirt.png", true), loadTexture("res/textures/dirt_foliage.png", true), false, true));
     arrput(blocks, create_block(loadTexture("res/textures/water.png", false), NULL, true, false));
+    arrput(blocks, create_block(loadTexture("res/textures/stone.png", true), NULL, false, true));
 
     w = world_init(blocks);
 
