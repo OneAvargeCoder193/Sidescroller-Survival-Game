@@ -13,6 +13,9 @@ world world_init(block* blocks) {
     world w = {0};
 
     fnl_state n = fnlCreateState();
+    fnl_state rock = fnlCreateState();
+    rock.noise_type = FNL_NOISE_CELLULAR;
+    rock.cellular_distance_func = FNL_CELLULAR_DISTANCE_EUCLIDEAN;
     for (int x = 0; x < WORLD_WIDTH; x++) {
         for (int y = 0; y < WORLD_HEIGHT; y++) {
             float height = fnlGetNoise2D(&n, x * 3, 0) * 5 + 15;
@@ -36,8 +39,16 @@ world world_init(block* blocks) {
                     if (y < height - 3) {
                         block = 2;
                     }
+                    if (y < height - 15) {
+                        block = 4;
+                    }
                 } else {
                     block = 2;
+                }
+            }
+            if (block == 2) {
+                if (fnlGetNoise2D(&rock, x * 3, y * 3) < -0.5) {
+                    block = 4;
                 }
             }
             w.blocks[x][y] = block;
