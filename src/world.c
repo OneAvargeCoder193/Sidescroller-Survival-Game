@@ -28,15 +28,16 @@ world world_init(block* blocks) {
                 }
             }
             if (fabsf(fnlGetNoise2D(&n, x * 3, y * 3)) > 0.4 || fabsf(fnlGetNoise2D(&n, x * 3 + 53, y * 3)) > 0.4) {
-                if (y < height) {
-                    block = 1;
-                }
-                if (y < height - 3) {
+                if (y >= 15)
+                {
+                    if (y < height) {
+                        block = 1;
+                    }
+                    if (y < height - 3) {
+                        block = 2;
+                    }
+                } else {
                     block = 2;
-                }
-            } else {
-                if (y < height) {
-                    block = 0;
                 }
             }
             w.blocks[x][y] = block;
@@ -97,6 +98,28 @@ void world_setblockdata(world w, int x, int y, uint16_t v) {
     if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
         return;
     w.blocks[x][y] = v;
+}
+
+void drawBlock(SDL_Renderer* renderer, block* blocks, int b, int x, int y, float camx, float camy) {
+    int data = b >> 8;
+    int block = b & 0xff;
+
+    int width, height;
+    SDL_GetRendererOutputSize(renderer, &width, &height);
+
+    SDL_Rect src;
+    src.x = data * 8;
+    src.y = 0;
+    src.w = 8;
+    src.h = 8;
+
+    SDL_Rect dst;
+    dst.x = (x - camx) * 24;
+    dst.y = height - (y - camy) * 24 - 24;
+    dst.w = 24;
+    dst.h = 24;
+
+    SDL_RenderCopy(renderer, blocks[block].tex, &src, &dst);
 }
 
 void drawBlockEdges(SDL_Renderer* renderer, block* blocks, int b, int x, int y, float camx, float camy) {
@@ -416,6 +439,8 @@ void world_render(world w, float camx, float camy, block* blocks, SDL_Renderer* 
             
             if (blocks[block].hasEdges) {
                 drawBlockEdges(renderer, blocks, b, x, y, camx, camy);
+            } else {
+                drawBlock(renderer, blocks, b, x, y, camx, camy);
             }
         }
     }
