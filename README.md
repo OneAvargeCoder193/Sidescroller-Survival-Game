@@ -1,2 +1,2 @@
 # Sidescroller Survival Game
-sidescroller thing
+Requires sdl2 and sdl2_image to build
