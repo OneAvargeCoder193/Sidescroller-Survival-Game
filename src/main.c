@@ -15,7 +15,8 @@
 world w;
 SDL_Renderer *renderer;
 block *blocks = NULL;
-SDL_Texture* player;
+SDL_Texture* playerParts[6];
+SDL_Texture* hat;
 
 float camx = 0;
 float camy = 0;
@@ -55,7 +56,13 @@ void render() {
     playerDst.w = 64;
     playerDst.h = 64;
     
-    SDL_RenderCopy(renderer, player, &playerSrc, &playerDst);
+    SDL_RenderCopy(renderer, playerParts[0], &playerSrc, &playerDst);
+    SDL_RenderCopy(renderer, playerParts[1], &playerSrc, &playerDst);
+    SDL_RenderCopy(renderer, playerParts[2], &playerSrc, &playerDst);
+    SDL_RenderCopy(renderer, playerParts[3], &playerSrc, &playerDst);
+    SDL_RenderCopy(renderer, playerParts[4], &playerSrc, &playerDst);
+    SDL_RenderCopy(renderer, hat, &playerSrc, &playerDst);
+    SDL_RenderCopy(renderer, playerParts[5], &playerSrc, &playerDst);
 
     world_render(w, camx, camy, blocks, renderer);
 }
@@ -119,7 +126,13 @@ int main(int argc, char* argv[]) {
     arrput(blocks, create_block(loadTexture("res/textures/water.png"), NULL, true, liquid));
     arrput(blocks, create_block(loadTexture("res/textures/stone.png"), loadTexture("res/textures/stone_foliage.png"), false, edges));
 
-    player = loadTexture("res/textures/player.png");
+    playerParts[0] = loadTexture("res/textures/player_backarm.png");
+    playerParts[1] = loadTexture("res/textures/player_backleg.png");
+    playerParts[2] = loadTexture("res/textures/player_body.png");
+    playerParts[3] = loadTexture("res/textures/player_frontleg.png");
+    playerParts[4] = loadTexture("res/textures/player_head.png");
+    playerParts[5] = loadTexture("res/textures/player_frontarm.png");
+    hat = loadTexture("res/textures/classic_hat.png");
 
     w = world_init(blocks);
 
@@ -180,12 +193,12 @@ int main(int argc, char* argv[]) {
             }
 
             if (moveX < 0) {
-                playerside = 1;
+                playerside = 0;
                 if (playerstate == idle)
                     playerframe = 5;
                 playerstate = walking;
             } else if (moveX > 0) {
-                playerside = 0;
+                playerside = 1;
                 if (playerstate == idle)
                     playerframe = 5;
                 playerstate = walking;
@@ -218,8 +231,12 @@ int main(int argc, char* argv[]) {
         SDL_DestroyTexture(blocks[i].tex);
         SDL_DestroyTexture(blocks[i].foliage);
     }
+    arrfree(blocks);
     SDL_DestroyTexture(background);
-    SDL_DestroyTexture(player);
+    for (int i = 0; i < 6; i++) {
+        SDL_DestroyTexture(playerParts[i]);
+    }
+    SDL_DestroyTexture(hat);
     SDL_DestroyRenderer(renderer);
 
     return 0;
