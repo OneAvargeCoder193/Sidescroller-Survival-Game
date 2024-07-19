@@ -15,28 +15,53 @@
 world w;
 SDL_Renderer *renderer;
 block *blocks = NULL;
+SDL_Texture* player;
 
 float camx = 0;
 float camy = 0;
 
+float playerx = WORLD_WIDTH / 2;
+float playery = WORLD_HEIGHT / 2;
+int playerside = 0;
+float playerframe = 5;
+typedef enum entitystate {
+    idle,
+    walking
+} entitystate;
+entitystate playerstate;
+
 void render() {
     int width, height;
     SDL_GetRendererOutputSize(renderer, &width, &height);
+    
+    float renplayerx = floorf(playerx * 8) / 8;
+    float renplayery = floorf(playery * 8) / 8;
+    
+    camx = fmaxf(renplayerx, (float)width / 32);
+    camy = fmaxf(renplayery, (float)height / 32);
+
+    int animId = (int)playerframe;
+    int side = playerside;
+
+    SDL_Rect playerSrc;
+    playerSrc.x = animId * 32;
+    playerSrc.y = side * 32;
+    playerSrc.w = 32;
+    playerSrc.h = 32;
+
+    SDL_Rect playerDst;
+    playerDst.x = (renplayerx - camx) * 16 + width / 2.0 - 32;
+    playerDst.y = height - (renplayery - camy) * 16 - height / 2.0 - 32;
+    playerDst.w = 64;
+    playerDst.h = 64;
+    
+    SDL_RenderCopy(renderer, player, &playerSrc, &playerDst);
+
     world_render(w, camx, camy, blocks, renderer);
 }
 
-SDL_Texture* loadTexture(const char* path, bool calculateVariants) {
-    // if (!calculateVariants) {
-        return IMG_LoadTexture(renderer, path);
-    // }
-    // SDL_Surface* surf = IMG_Load(path);
-
-    // SDL_Surface* surfVars = calculateAllVariants(surf);
-    // SDL_FreeSurface(surf);
-    
-    // SDL_Texture* res = SDL_CreateTextureFromSurface(renderer, surfVars);
-    // SDL_FreeSurface(surfVars);
-    // return res;
+SDL_Texture* loadTexture(const char* path) {
+    return IMG_LoadTexture(renderer, path);
 }
 
 int main(int argc, char* argv[]) {
@@ -89,10 +114,12 @@ int main(int argc, char* argv[]) {
     SDL_SetTextureScaleMode(background, SDL_ScaleModeLinear);
     
     arrput(blocks, create_block(NULL, NULL, true, false));
-    arrput(blocks, create_block(loadTexture("res/textures/grass.png", true), loadTexture("res/textures/grass_foliage.png", true), false, true));
-    arrput(blocks, create_block(loadTexture("res/textures/dirt.png", true), loadTexture("res/textures/dirt_foliage.png", true), false, true));
-    arrput(blocks, create_block(loadTexture("res/textures/water.png", false), NULL, true, false));
-    arrput(blocks, create_block(loadTexture("res/textures/stone.png", true), NULL, false, true));
+    arrput(blocks, create_block(loadTexture("res/textures/grass.png"), loadTexture("res/textures/grass_foliage.png"), false, edges));
+    arrput(blocks, create_block(loadTexture("res/textures/dirt.png"), loadTexture("res/textures/dirt_foliage.png"), false, edges));
+    arrput(blocks, create_block(loadTexture("res/textures/water.png"), NULL, true, liquid));
+    arrput(blocks, create_block(loadTexture("res/textures/stone.png"), loadTexture("res/textures/stone_foliage.png"), false, edges));
+
+    player = loadTexture("res/textures/player.png");
 
     w = world_init(blocks);
 
@@ -119,6 +146,19 @@ int main(int argc, char* argv[]) {
                         SDL_RenderReadPixels(renderer, NULL, SDL_PIXELFORMAT_ARGB8888, sshot->pixels, sshot->pitch);
                         IMG_SavePNG(sshot, "screenshot.png");
                         SDL_FreeSurface(sshot);
+                    } else if (e.key.keysym.sym == SDLK_F3) {
+                        SDL_Texture *sshot = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_TARGET, WORLD_WIDTH * 24, WORLD_HEIGHT * 24);
+                        SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormat(0, WORLD_WIDTH * 24, WORLD_HEIGHT * 24, 32, SDL_PIXELFORMAT_RGBA32);
+                        
+                        SDL_SetRenderTarget(renderer, sshot);
+                        world_render_range(w, 0, WORLD_WIDTH, 0, WORLD_HEIGHT, WORLD_WIDTH / 2, WORLD_HEIGHT / 2, blocks, renderer);
+                        SDL_RenderReadPixels(renderer, NULL, SDL_PIXELFORMAT_RGBA32, surface->pixels, surface->pitch);
+                        SDL_SetRenderTarget(renderer, NULL);
+                        
+                        IMG_SavePNG(surface, "world.png");
+
+                        SDL_FreeSurface(surface);
+                        SDL_DestroyTexture(sshot);
                     }
                     break;
             }
@@ -129,6 +169,34 @@ int main(int argc, char* argv[]) {
         double fps = 1 / delta;
 
         if (fps < 144) {
+            const uint8_t* keys = SDL_GetKeyboardState(NULL);
+
+            float moveX = (keys[SDL_SCANCODE_D] - keys[SDL_SCANCODE_A]) * 3;
+            float moveY = (keys[SDL_SCANCODE_W] - keys[SDL_SCANCODE_S]) * 3;
+
+            playerframe += fabsf(moveX) * 8 * delta;
+            if (playerframe >= 17) {
+                playerframe -= 12;
+            }
+
+            if (moveX < 0) {
+                playerside = 1;
+                if (playerstate == idle)
+                    playerframe = 5;
+                playerstate = walking;
+            } else if (moveX > 0) {
+                playerside = 0;
+                if (playerstate == idle)
+                    playerframe = 5;
+                playerstate = walking;
+            } else if (moveX == 0) {
+                playerframe = 0;
+                playerstate = idle;
+            }
+
+            playerx += moveX * delta;
+            playery += moveY * delta;
+
             SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
             SDL_RenderClear(renderer);
 
@@ -136,8 +204,6 @@ int main(int argc, char* argv[]) {
 
             render();
             SDL_RenderPresent(renderer);
-
-            camx += delta;
             
             char title[64];
             snprintf(title, 64, "Survival Game -- %.2f fps", fps);
@@ -153,6 +219,7 @@ int main(int argc, char* argv[]) {
         SDL_DestroyTexture(blocks[i].foliage);
     }
     SDL_DestroyTexture(background);
+    SDL_DestroyTexture(player);
     SDL_DestroyRenderer(renderer);
 
     return 0;

@@ -5,8 +5,10 @@
 #define FNL_IMPL
 #include "FastNoiseLite.h"
 
-block create_block(SDL_Texture* tex, SDL_Texture* foliage, bool transparent, bool hasEdges) {
-    return (block){tex, foliage, transparent, hasEdges};
+#include "stb_ds.h"
+
+block create_block(SDL_Texture* tex, SDL_Texture* foliage, bool transparent, blockshape shape) {
+    return (block){tex, foliage, transparent, shape};
 }
 
 world world_init(block* blocks) {
@@ -16,38 +18,36 @@ world world_init(block* blocks) {
     fnl_state rock = fnlCreateState();
     rock.noise_type = FNL_NOISE_CELLULAR;
     rock.cellular_distance_func = FNL_CELLULAR_DISTANCE_EUCLIDEAN;
+
+    int* fillWaterPosX = NULL;
+    int* fillWaterPosY = NULL;
+
     for (int x = 0; x < WORLD_WIDTH; x++) {
         for (int y = 0; y < WORLD_HEIGHT; y++) {
-            float height = fnlGetNoise2D(&n, x * 3, 0) * 5 + 15;
+            float height = fnlGetNoise2D(&n, x, 0) * 15 + WORLD_HEIGHT / 2;
             int block = 0;
-            if (y <= 15) {
-                block = 3;
-                if (y == 15) {
-                    block |= 4 << 8;
-                } else if (y == 14) {
-                    block |= 12 << 8;
-                } else {
-                    block |= 15 << 8;
-                }
-            }
-            if (fabsf(fnlGetNoise2D(&n, x * 3, y * 3)) > 0.4 || fabsf(fnlGetNoise2D(&n, x * 3 + 53, y * 3)) > 0.4) {
-                if (y >= 15)
-                {
-                    if (y < height) {
-                        block = 1;
-                    }
-                    if (y < height - 3) {
-                        block = 2;
-                    }
-                    if (y < height - 15) {
-                        block = 4;
-                    }
+            if (y < height) {
+                if (y >= WORLD_HEIGHT / 2) {
+                    block = 1;
                 } else {
                     block = 2;
                 }
             }
+            if (y < height - 3) {
+                block = 2;
+            }
+            if (y < height - 15) {
+                block = 4;
+            }
+            if (block == 0 && y == WORLD_HEIGHT / 2) {
+                arrput(fillWaterPosX, x);
+                arrput(fillWaterPosY, y);
+            }
+            if (fabsf(fnlGetNoise2D(&n, x, y)) < 0.4 && fabsf(fnlGetNoise2D(&n, x * 3 + 53, y * 3)) < 0.4) {
+                block = 0;
+            }
             if (block == 2) {
-                if (fnlGetNoise2D(&rock, x * 3, y * 3) < -0.5) {
+                if (fnlGetNoise2D(&rock, x, y) < -0.5 && y < height - 7) {
                     block = 4;
                 }
             }
@@ -55,10 +55,33 @@ world world_init(block* blocks) {
         }
     }
 
+    while (arrlen(fillWaterPosX) != 0) {
+        int x = arrpop(fillWaterPosX);
+        int y = arrpop(fillWaterPosY);
+
+        w.blocks[x][y] = 3;
+
+        if (world_getblock(w, x + 1, y) == 0) {
+            arrput(fillWaterPosX, x + 1);
+            arrput(fillWaterPosY, y);
+        }
+
+        if (world_getblock(w, x - 1, y) == 0) {
+            arrput(fillWaterPosX, x - 1);
+            arrput(fillWaterPosY, y);
+        }
+
+        if (world_getblock(w, x, y - 1) == 0) {
+            arrput(fillWaterPosX, x);
+            arrput(fillWaterPosY, y - 1);
+        }
+    }
+
     for (int x = 0; x < WORLD_WIDTH; x++) {
         for (int y = 0; y < WORLD_HEIGHT; y++) {
             uint8_t data = world_getdata(w, x, y);
-            if (!blocks[world_getblock(w, x, y)].transparent) {
+            blockshape shape = blocks[world_getblock(w, x, y)].shape;
+            if (shape == edges) {
                 data |= (blocks[world_getblock(w, x, y + 1)].transparent);
                 data |= (blocks[world_getblock(w, x, y - 1)].transparent) << 1;
                 data |= (blocks[world_getblock(w, x - 1, y)].transparent) << 2;
@@ -67,10 +90,21 @@ world world_init(block* blocks) {
                 data |= (blocks[world_getblock(w, x + 1, y + 1)].transparent) << 5;
                 data |= (blocks[world_getblock(w, x - 1, y - 1)].transparent) << 6;
                 data |= (blocks[world_getblock(w, x + 1, y - 1)].transparent) << 7;
+            } else if (shape == liquid) {
+                if (blocks[world_getblock(w, x, y + 1)].shape != liquid) {
+                    data = 4;
+                } else if (blocks[world_getblock(w, x, y + 2)].shape != liquid) {
+                    data = 12;
+                } else {
+                    data = 15;
+                }
             }
             w.blocks[x][y] |= data << 8;
         }
     }
+
+    arrfree(fillWaterPosX);
+    arrfree(fillWaterPosY);
     return w;
 }
 
@@ -125,10 +159,10 @@ void drawBlock(SDL_Renderer* renderer, block* blocks, int b, int x, int y, float
     src.h = 8;
 
     SDL_Rect dst;
-    dst.x = (x - camx) * 24;
-    dst.y = height - (y - camy) * 24 - 24;
-    dst.w = 24;
-    dst.h = 24;
+    dst.x = (x * 8 - (int)(camx * 8)) * 2;
+    dst.y = height - (y * 8 - (int)(camy * 8)) * 2 - 16;
+    dst.w = 16;
+    dst.h = 16;
 
     SDL_RenderCopy(renderer, blocks[block].tex, &src, &dst);
 }
@@ -148,7 +182,7 @@ void drawBlockEdges(SDL_Renderer* renderer, block* blocks, int b, int x, int y, 
 
     int topLeftTextureId = murmur_hash_combine(x, y) % 16;
     int topRightTextureId = murmur_hash_combine(x + 29402, y + 3092) % 16;
-    int bottomLeftTextureId = murmur_hash_combine(x + 19243, y - 2939) % 16;
+    int bottomLeftTextureId = murmur_hash_combine(x + 19163, y - 2939) % 16;
     int bottomRightTextureId = murmur_hash_combine(x - 29222, y + 23332) % 16;
 
     if (topLeft || (top && left)) {
@@ -200,11 +234,11 @@ void drawBlockEdges(SDL_Renderer* renderer, block* blocks, int b, int x, int y, 
     }
 
     if (!top && left) {
-        topLeftTextureId = 24 + murmur_hash_combine(x + 19243, y - 2939) % 4;
+        topLeftTextureId = 24 + murmur_hash_combine(x + 19163, y - 2939) % 4;
     }
     
     if (!bottom && left) {
-        bottomLeftTextureId = 24 + murmur_hash_combine(x + 19243, y - 2939) % 4;
+        bottomLeftTextureId = 24 + murmur_hash_combine(x + 19163, y - 2939) % 4;
     }
 
     if (!top && right) {
@@ -225,10 +259,10 @@ void drawBlockEdges(SDL_Renderer* renderer, block* blocks, int b, int x, int y, 
     topLeftSrc.h = 4;
 
     SDL_Rect topLeftDst;
-    topLeftDst.x = (x - camx) * 24;
-    topLeftDst.y = height - (y - camy) * 24 - 24;
-    topLeftDst.w = 12;
-    topLeftDst.h = 12;
+    topLeftDst.x = (x * 8 - (int)(camx * 8)) * 2;
+    topLeftDst.y = height - (y * 8 - (int)(camy * 8)) * 2 - 16;
+    topLeftDst.w = 8;
+    topLeftDst.h = 8;
 
     SDL_Rect topRightSrc;
     topRightSrc.x = topRightTextureId * 4;
@@ -237,10 +271,10 @@ void drawBlockEdges(SDL_Renderer* renderer, block* blocks, int b, int x, int y, 
     topRightSrc.h = 4;
 
     SDL_Rect topRightDst;
-    topRightDst.x = (x - camx) * 24 + 12;
-    topRightDst.y = height - (y - camy) * 24 - 24;
-    topRightDst.w = 12;
-    topRightDst.h = 12;
+    topRightDst.x = (x * 8 - (int)(camx * 8)) * 2 + 8;
+    topRightDst.y = height - (y * 8 - (int)(camy * 8)) * 2 - 16;
+    topRightDst.w = 8;
+    topRightDst.h = 8;
 
     SDL_Rect bottomLeftSrc;
     bottomLeftSrc.x = bottomLeftTextureId * 4;
@@ -249,10 +283,10 @@ void drawBlockEdges(SDL_Renderer* renderer, block* blocks, int b, int x, int y, 
     bottomLeftSrc.h = 4;
 
     SDL_Rect bottomLeftDst;
-    bottomLeftDst.x = (x - camx) * 24;
-    bottomLeftDst.y = height - (y - camy) * 24 - 12;
-    bottomLeftDst.w = 12;
-    bottomLeftDst.h = 12;
+    bottomLeftDst.x = (x * 8 - (int)(camx * 8)) * 2;
+    bottomLeftDst.y = height - (y * 8 - (int)(camy * 8)) * 2 - 8;
+    bottomLeftDst.w = 8;
+    bottomLeftDst.h = 8;
 
     SDL_Rect bottomRightSrc;
     bottomRightSrc.x = bottomRightTextureId * 4;
@@ -261,10 +295,10 @@ void drawBlockEdges(SDL_Renderer* renderer, block* blocks, int b, int x, int y, 
     bottomRightSrc.h = 4;
 
     SDL_Rect bottomRightDst;
-    bottomRightDst.x = (x - camx) * 24 + 12;
-    bottomRightDst.y = height - (y - camy) * 24 - 12;
-    bottomRightDst.w = 12;
-    bottomRightDst.h = 12;
+    bottomRightDst.x = (x * 8 - (int)(camx * 8)) * 2 + 8;
+    bottomRightDst.y = height - (y * 8 - (int)(camy * 8)) * 2 - 8;
+    bottomRightDst.w = 8;
+    bottomRightDst.h = 8;
 
     SDL_RenderCopy(renderer, blocks[block].tex, &topLeftSrc, &topLeftDst);
     SDL_RenderCopy(renderer, blocks[block].tex, &topRightSrc, &topRightDst);
@@ -306,10 +340,10 @@ void drawBlockEdgesFoliage(SDL_Renderer* renderer, block* blocks, int b, int x, 
         tflSrc.h = 4;
 
         SDL_Rect tflDst;
-        tflDst.x = (x - camx) * 24;
-        tflDst.y = height - (y - camy) * 24 - 36;
-        tflDst.w = 12;
-        tflDst.h = 12;
+        tflDst.x = (x * 8 - (int)(camx * 8)) * 2;
+        tflDst.y = height - (y * 8 - (int)(camy * 8)) * 2 - 24;
+        tflDst.w = 8;
+        tflDst.h = 8;
 
         SDL_Rect tfrSrc;
         tfrSrc.x = tfrIdX * 4;
@@ -318,10 +352,10 @@ void drawBlockEdgesFoliage(SDL_Renderer* renderer, block* blocks, int b, int x, 
         tfrSrc.h = 4;
 
         SDL_Rect tfrDst;
-        tfrDst.x = (x - camx) * 24 + 12;
-        tfrDst.y = height - (y - camy) * 24 - 36;
-        tfrDst.w = 12;
-        tfrDst.h = 12;
+        tfrDst.x = (x * 8 - (int)(camx * 8)) * 2 + 8;
+        tfrDst.y = height - (y * 8 - (int)(camy * 8)) * 2 - 24;
+        tfrDst.w = 8;
+        tfrDst.h = 8;
 
         SDL_RenderCopy(renderer, blocks[block].foliage, &tflSrc, &tflDst);
         SDL_RenderCopy(renderer, blocks[block].foliage, &tfrSrc, &tfrDst);
@@ -341,10 +375,10 @@ void drawBlockEdgesFoliage(SDL_Renderer* renderer, block* blocks, int b, int x, 
         bflSrc.h = 4;
 
         SDL_Rect bflDst;
-        bflDst.x = (x - camx) * 24;
-        bflDst.y = height - (y - camy) * 24;
-        bflDst.w = 12;
-        bflDst.h = 12;
+        bflDst.x = (x * 8 - (int)(camx * 8)) * 2;
+        bflDst.y = height - (y * 8 - (int)(camy * 8)) * 2;
+        bflDst.w = 8;
+        bflDst.h = 8;
 
         SDL_Rect bfrSrc;
         bfrSrc.x = bfrIdX * 4;
@@ -353,10 +387,10 @@ void drawBlockEdgesFoliage(SDL_Renderer* renderer, block* blocks, int b, int x, 
         bfrSrc.h = 4;
 
         SDL_Rect bfrDst;
-        bfrDst.x = (x - camx) * 24 + 12;
-        bfrDst.y = height - (y - camy) * 24;
-        bfrDst.w = 12;
-        bfrDst.h = 12;
+        bfrDst.x = (x * 8 - (int)(camx * 8)) * 2 + 8;
+        bfrDst.y = height - (y * 8 - (int)(camy * 8)) * 2;
+        bfrDst.w = 8;
+        bfrDst.h = 8;
 
         SDL_RenderCopy(renderer, blocks[block].foliage, &bflSrc, &bflDst);
         SDL_RenderCopy(renderer, blocks[block].foliage, &bfrSrc, &bfrDst);
@@ -376,10 +410,10 @@ void drawBlockEdgesFoliage(SDL_Renderer* renderer, block* blocks, int b, int x, 
         tflSrc.h = 4;
 
         SDL_Rect tflDst;
-        tflDst.x = (x - camx) * 24 - 12;
-        tflDst.y = height - (y - camy) * 24 - 24;
-        tflDst.w = 12;
-        tflDst.h = 12;
+        tflDst.x = (x * 8 - (int)(camx * 8)) * 2 - 8;
+        tflDst.y = height - (y * 8 - (int)(camy * 8)) * 2 - 16;
+        tflDst.w = 8;
+        tflDst.h = 8;
 
         SDL_Rect bflSrc;
         bflSrc.x = bflIdX * 4;
@@ -388,10 +422,10 @@ void drawBlockEdgesFoliage(SDL_Renderer* renderer, block* blocks, int b, int x, 
         bflSrc.h = 4;
 
         SDL_Rect bflDst;
-        bflDst.x = (x - camx) * 24 - 12;
-        bflDst.y = height - (y - camy) * 24 - 12;
-        bflDst.w = 12;
-        bflDst.h = 12;
+        bflDst.x = (x * 8 - (int)(camx * 8)) * 2 - 8;
+        bflDst.y = height - (y * 8 - (int)(camy * 8)) * 2 - 8;
+        bflDst.w = 8;
+        bflDst.h = 8;
 
         SDL_RenderCopy(renderer, blocks[block].foliage, &tflSrc, &tflDst);
         SDL_RenderCopy(renderer, blocks[block].foliage, &bflSrc, &bflDst);
@@ -411,10 +445,10 @@ void drawBlockEdgesFoliage(SDL_Renderer* renderer, block* blocks, int b, int x, 
         tfrSrc.h = 4;
 
         SDL_Rect tfrDst;
-        tfrDst.x = (x - camx) * 24 + 24;
-        tfrDst.y = height - (y - camy) * 24 - 24;
-        tfrDst.w = 12;
-        tfrDst.h = 12;
+        tfrDst.x = (x * 8 - (int)(camx * 8)) * 2 + 16;
+        tfrDst.y = height - (y * 8 - (int)(camy * 8)) * 2 - 16;
+        tfrDst.w = 8;
+        tfrDst.h = 8;
 
         SDL_Rect bfrSrc;
         bfrSrc.x = bfrIdX * 4;
@@ -423,24 +457,20 @@ void drawBlockEdgesFoliage(SDL_Renderer* renderer, block* blocks, int b, int x, 
         bfrSrc.h = 4;
 
         SDL_Rect bfrDst;
-        bfrDst.x = (x - camx) * 24 + 24;
-        bfrDst.y = height - (y - camy) * 24 - 12;
-        bfrDst.w = 12;
-        bfrDst.h = 12;
+        bfrDst.x = (x * 8 - (int)(camx * 8)) * 2 + 16;
+        bfrDst.y = height - (y * 8 - (int)(camy * 8)) * 2 - 8;
+        bfrDst.w = 8;
+        bfrDst.h = 8;
 
         SDL_RenderCopy(renderer, blocks[block].foliage, &tfrSrc, &tfrDst);
         SDL_RenderCopy(renderer, blocks[block].foliage, &bfrSrc, &bfrDst);
     }
 }
 
-void world_render(world w, float camx, float camy, block* blocks, SDL_Renderer* renderer) {
+void world_render_range(world w, int minx, int maxx, int miny, int maxy, float camx, float camy, block* blocks, SDL_Renderer* renderer) {
     int width, height;
     SDL_GetRendererOutputSize(renderer, &width, &height);
-    
-    int minx = (int)floorf(camx);
-    int miny = (int)floorf(camy);
-    int maxx = (int)ceilf(camx + (float)width / 24);
-    int maxy = (int)ceilf(camy + (float)height / 24);
+
     for (int x = minx; x < maxx; x++) {
         for (int y = miny; y < maxy; y++) {
             int b = w.blocks[x][y];
@@ -448,10 +478,10 @@ void world_render(world w, float camx, float camy, block* blocks, SDL_Renderer* 
             if (block == 0)
                 continue;
             
-            if (blocks[block].hasEdges) {
-                drawBlockEdges(renderer, blocks, b, x, y, camx, camy);
+            if (blocks[block].shape == edges) {
+                drawBlockEdges(renderer, blocks, b, x, y, camx - (float)width / 32, camy - (float)height / 32);
             } else {
-                drawBlock(renderer, blocks, b, x, y, camx, camy);
+                drawBlock(renderer, blocks, b, x, y, camx - (float)width / 32, camy - (float)height / 32);
             }
         }
     }
@@ -463,9 +493,21 @@ void world_render(world w, float camx, float camy, block* blocks, SDL_Renderer* 
             if (blocks[block].foliage == NULL)
                 continue;
             
-            if (blocks[block].hasEdges) {
-                drawBlockEdgesFoliage(renderer, blocks, b, x, y, camx, camy);
+            if (blocks[block].shape == edges) {
+                drawBlockEdgesFoliage(renderer, blocks, b, x, y, camx - (float)width / 32, camy - (float)height / 32);
             }
         }
     }
+}
+
+void world_render(world w, float camx, float camy, block* blocks, SDL_Renderer* renderer) {
+    int width, height;
+    SDL_GetRendererOutputSize(renderer, &width, &height);
+    
+    int minx = (int)floorf(camx - (float)width / 32);
+    int miny = (int)floorf(camy - (float)height / 32);
+    int maxx = (int)ceilf(camx + (float)width / 32);
+    int maxy = (int)ceilf(camy + (float)height / 32);
+
+    world_render_range(w, minx, maxx, miny, maxy, camx, camy, blocks, renderer);
 }
