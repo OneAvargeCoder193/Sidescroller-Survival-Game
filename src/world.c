@@ -66,6 +66,9 @@ world world_init(struct blockhash* blocks) {
     world w = {0};
 
     fnl_state n = fnlCreateState();
+    n.fractal_type = FNL_FRACTAL_FBM;
+    n.octaves = 16;
+    
     fnl_state rock = fnlCreateState();
     rock.noise_type = FNL_NOISE_CELLULAR;
     rock.cellular_distance_func = FNL_CELLULAR_DISTANCE_EUCLIDEAN;
@@ -75,7 +78,7 @@ world world_init(struct blockhash* blocks) {
 
     for (int x = 0; x < WORLD_WIDTH; x++) {
         for (int y = 0; y < WORLD_HEIGHT; y++) {
-            float height = fnlGetNoise2D(&n, x, 0) * 15 + WORLD_HEIGHT / 2;
+            float height = fnlGetNoise2D(&n, x / 2.0, 0) * 30 + WORLD_HEIGHT / 2;
             const char* block = "game:air";
             if (y < height) {
                 if (y >= WORLD_HEIGHT / 2) {
@@ -87,18 +90,20 @@ world world_init(struct blockhash* blocks) {
             if (y < height - 3) {
                 block = "game:dirt";
             }
-            if (y < height - 15) {
+            if (y < height - 50) {
                 block = "game:stone";
             }
             if (strcmp(block, "game:air") == 0 && y == WORLD_HEIGHT / 2) {
                 arrput(fillWaterPosX, x);
                 arrput(fillWaterPosY, y);
             }
-            if (fabsf(fnlGetNoise2D(&n, x, y)) < 0.4 && fabsf(fnlGetNoise2D(&n, x * 3 + 53, y * 3)) < 0.4) {
+            if (fabsf(fnlGetNoise2D(&n, x, y)) < 0.2 && fabsf(fnlGetNoise2D(&n, x + 5399, y + 3494)) < 0.2) {
                 block = "game:air";
             }
             if (strcmp(block, "game:dirt") == 0) {
-                if (fnlGetNoise2D(&rock, x, y) < -0.5 && y < height - 7) {
+                int nx = x + fnlGetNoise2D(&n, x - 2283, y - 9872) * 50;
+                int ny = y + fnlGetNoise2D(&n, x + 3939, y + 2939) * 50;
+                if (fnlGetNoise2D(&rock, nx, ny) < -0.5 && y < height - 7) {
                     block = "game:stone";
                 }
             }
