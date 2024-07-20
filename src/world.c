@@ -7,11 +7,62 @@
 
 #include "stb_ds.h"
 
+struct blockhash* blocks = NULL;
+
 block create_block(SDL_Texture* tex, SDL_Texture* foliage, bool transparent, blockshape shape) {
-    return (block){tex, foliage, transparent, shape};
+    block res;
+    res.tex = tex;
+    res.foliage = foliage;
+    res.transparent = transparent;
+    res.shape = shape;
+    return res;
 }
 
-world world_init(block* blocks) {
+blockshape string_to_blockshape(const char* str) {
+    if (strcmp(str, "solid") == 0) {
+        return solid;
+    } else if (strcmp(str, "edges") == 0) {
+        return edges;
+    } else if (strcmp(str, "liquid") == 0) {
+        return liquid;
+    } else {
+        fprintf(stderr, "Invalid blockshape: %s\n", str);
+        return -1; // or handle error appropriately
+    }
+}
+
+void registerBlock(const char* key, const cJSON* json, Assets *assets) {
+    cJSON* textureJson = cJSON_GetObjectItemCaseSensitive(json, "texture");
+    cJSON* foliageJson = cJSON_GetObjectItemCaseSensitive(json, "foliage");
+    cJSON* transparentJson = cJSON_GetObjectItemCaseSensitive(json, "transparent");
+    cJSON* shapeJson = cJSON_GetObjectItemCaseSensitive(json, "shape");
+
+    SDL_Texture* tex = NULL;
+    if (textureJson)
+        tex = shget(assets->textures, textureJson->valuestring);
+    
+    SDL_Texture* foliage = NULL;
+    if (foliageJson)
+        foliage = shget(assets->textures, foliageJson->valuestring);
+    
+    bool transparent = false;
+    if (transparentJson)
+        transparent = transparentJson->valueint;
+    
+    blockshape shape = solid;
+    if (shapeJson)
+        shape = string_to_blockshape(shapeJson->valuestring);
+    
+    block res;
+    res.tex = tex;
+    res.foliage = foliage;
+    res.transparent = transparent;
+    res.shape = shape;
+
+    shput(blocks, key, res);
+}
+
+world world_init(struct blockhash* blocks) {
     world w = {0};
 
     fnl_state n = fnlCreateState();
@@ -25,33 +76,33 @@ world world_init(block* blocks) {
     for (int x = 0; x < WORLD_WIDTH; x++) {
         for (int y = 0; y < WORLD_HEIGHT; y++) {
             float height = fnlGetNoise2D(&n, x, 0) * 15 + WORLD_HEIGHT / 2;
-            int block = 0;
+            const char* block = "game:air";
             if (y < height) {
                 if (y >= WORLD_HEIGHT / 2) {
-                    block = 1;
+                    block = "game:grass";
                 } else {
-                    block = 2;
+                    block = "game:dirt";
                 }
             }
             if (y < height - 3) {
-                block = 2;
+                block = "game:dirt";
             }
             if (y < height - 15) {
-                block = 4;
+                block = "game:stone";
             }
-            if (block == 0 && y == WORLD_HEIGHT / 2) {
+            if (strcmp(block, "game:air") == 0 && y == WORLD_HEIGHT / 2) {
                 arrput(fillWaterPosX, x);
                 arrput(fillWaterPosY, y);
             }
             if (fabsf(fnlGetNoise2D(&n, x, y)) < 0.4 && fabsf(fnlGetNoise2D(&n, x * 3 + 53, y * 3)) < 0.4) {
-                block = 0;
+                block = "game:air";
             }
-            if (block == 2) {
+            if (strcmp(block, "game:dirt") == 0) {
                 if (fnlGetNoise2D(&rock, x, y) < -0.5 && y < height - 7) {
-                    block = 4;
+                    block = "game:stone";
                 }
             }
-            w.blocks[x][y] = block;
+            w.blocks[x][y] = shgeti(blocks, block);
         }
     }
 
@@ -59,7 +110,7 @@ world world_init(block* blocks) {
         int x = arrpop(fillWaterPosX);
         int y = arrpop(fillWaterPosY);
 
-        w.blocks[x][y] = 3;
+        w.blocks[x][y] = shgeti(blocks, "game:water");
 
         if (world_getblock(w, x + 1, y) == 0) {
             arrput(fillWaterPosX, x + 1);
@@ -80,20 +131,20 @@ world world_init(block* blocks) {
     for (int x = 0; x < WORLD_WIDTH; x++) {
         for (int y = 0; y < WORLD_HEIGHT; y++) {
             uint8_t data = world_getdata(w, x, y);
-            blockshape shape = blocks[world_getblock(w, x, y)].shape;
+            blockshape shape = blocks[world_getblock(w, x, y)].value.shape;
             if (shape == edges) {
-                data |= (blocks[world_getblock(w, x, y + 1)].transparent);
-                data |= (blocks[world_getblock(w, x, y - 1)].transparent) << 1;
-                data |= (blocks[world_getblock(w, x - 1, y)].transparent) << 2;
-                data |= (blocks[world_getblock(w, x + 1, y)].transparent) << 3;
-                data |= (blocks[world_getblock(w, x - 1, y + 1)].transparent) << 4;
-                data |= (blocks[world_getblock(w, x + 1, y + 1)].transparent) << 5;
-                data |= (blocks[world_getblock(w, x - 1, y - 1)].transparent) << 6;
-                data |= (blocks[world_getblock(w, x + 1, y - 1)].transparent) << 7;
+                data |= (blocks[world_getblock(w, x, y + 1)].value.transparent);
+                data |= (blocks[world_getblock(w, x, y - 1)].value.transparent) << 1;
+                data |= (blocks[world_getblock(w, x - 1, y)].value.transparent) << 2;
+                data |= (blocks[world_getblock(w, x + 1, y)].value.transparent) << 3;
+                data |= (blocks[world_getblock(w, x - 1, y + 1)].value.transparent) << 4;
+                data |= (blocks[world_getblock(w, x + 1, y + 1)].value.transparent) << 5;
+                data |= (blocks[world_getblock(w, x - 1, y - 1)].value.transparent) << 6;
+                data |= (blocks[world_getblock(w, x + 1, y - 1)].value.transparent) << 7;
             } else if (shape == liquid) {
-                if (blocks[world_getblock(w, x, y + 1)].shape != liquid) {
+                if (blocks[world_getblock(w, x, y + 1)].value.shape != liquid) {
                     data = 4;
-                } else if (blocks[world_getblock(w, x, y + 2)].shape != liquid) {
+                } else if (blocks[world_getblock(w, x, y + 2)].value.shape != liquid) {
                     data = 12;
                 } else {
                     data = 15;
@@ -145,7 +196,7 @@ void world_setblockdata(world w, int x, int y, uint16_t v) {
     w.blocks[x][y] = v;
 }
 
-void drawBlock(SDL_Renderer* renderer, block* blocks, int b, int x, int y, float camx, float camy) {
+void drawBlock(SDL_Renderer* renderer, struct blockhash* blocks, int b, int x, int y, float camx, float camy) {
     int data = b >> 8;
     int block = b & 0xff;
 
@@ -164,10 +215,10 @@ void drawBlock(SDL_Renderer* renderer, block* blocks, int b, int x, int y, float
     dst.w = 16;
     dst.h = 16;
 
-    SDL_RenderCopy(renderer, blocks[block].tex, &src, &dst);
+    SDL_RenderCopy(renderer, blocks[block].value.tex, &src, &dst);
 }
 
-void drawBlockEdges(SDL_Renderer* renderer, block* blocks, int b, int x, int y, float camx, float camy) {
+void drawBlockEdges(SDL_Renderer* renderer, struct blockhash* blocks, int b, int x, int y, float camx, float camy) {
     int data = b >> 8;
     int block = b & 0xff;
 
@@ -300,13 +351,13 @@ void drawBlockEdges(SDL_Renderer* renderer, block* blocks, int b, int x, int y, 
     bottomRightDst.w = 8;
     bottomRightDst.h = 8;
 
-    SDL_RenderCopy(renderer, blocks[block].tex, &topLeftSrc, &topLeftDst);
-    SDL_RenderCopy(renderer, blocks[block].tex, &topRightSrc, &topRightDst);
-    SDL_RenderCopy(renderer, blocks[block].tex, &bottomLeftSrc, &bottomLeftDst);
-    SDL_RenderCopy(renderer, blocks[block].tex, &bottomRightSrc, &bottomRightDst);
+    SDL_RenderCopy(renderer, blocks[block].value.tex, &topLeftSrc, &topLeftDst);
+    SDL_RenderCopy(renderer, blocks[block].value.tex, &topRightSrc, &topRightDst);
+    SDL_RenderCopy(renderer, blocks[block].value.tex, &bottomLeftSrc, &bottomLeftDst);
+    SDL_RenderCopy(renderer, blocks[block].value.tex, &bottomRightSrc, &bottomRightDst);
 }
 
-void drawBlockEdgesFoliage(SDL_Renderer* renderer, block* blocks, int b, int x, int y, float camx, float camy) {
+void drawBlockEdgesFoliage(SDL_Renderer* renderer, struct blockhash* blocks, int b, int x, int y, float camx, float camy) {
     int data = b >> 8;
     int block = b & 0xff;
 
@@ -323,7 +374,7 @@ void drawBlockEdgesFoliage(SDL_Renderer* renderer, block* blocks, int b, int x, 
     SDL_GetRendererOutputSize(renderer, &width, &height);
     
     int texRows;
-    SDL_QueryTexture(blocks[block].foliage, NULL, NULL, NULL, &texRows);
+    SDL_QueryTexture(blocks[block].value.foliage, NULL, NULL, NULL, &texRows);
     texRows /= 4;
 
     if (top) {
@@ -357,8 +408,8 @@ void drawBlockEdgesFoliage(SDL_Renderer* renderer, block* blocks, int b, int x, 
         tfrDst.w = 8;
         tfrDst.h = 8;
 
-        SDL_RenderCopy(renderer, blocks[block].foliage, &tflSrc, &tflDst);
-        SDL_RenderCopy(renderer, blocks[block].foliage, &tfrSrc, &tfrDst);
+        SDL_RenderCopy(renderer, blocks[block].value.foliage, &tflSrc, &tflDst);
+        SDL_RenderCopy(renderer, blocks[block].value.foliage, &tfrSrc, &tfrDst);
     }
 
     if (bottom) {
@@ -392,8 +443,8 @@ void drawBlockEdgesFoliage(SDL_Renderer* renderer, block* blocks, int b, int x, 
         bfrDst.w = 8;
         bfrDst.h = 8;
 
-        SDL_RenderCopy(renderer, blocks[block].foliage, &bflSrc, &bflDst);
-        SDL_RenderCopy(renderer, blocks[block].foliage, &bfrSrc, &bfrDst);
+        SDL_RenderCopy(renderer, blocks[block].value.foliage, &bflSrc, &bflDst);
+        SDL_RenderCopy(renderer, blocks[block].value.foliage, &bfrSrc, &bfrDst);
     }
 
     if (left) {
@@ -427,8 +478,8 @@ void drawBlockEdgesFoliage(SDL_Renderer* renderer, block* blocks, int b, int x, 
         bflDst.w = 8;
         bflDst.h = 8;
 
-        SDL_RenderCopy(renderer, blocks[block].foliage, &tflSrc, &tflDst);
-        SDL_RenderCopy(renderer, blocks[block].foliage, &bflSrc, &bflDst);
+        SDL_RenderCopy(renderer, blocks[block].value.foliage, &tflSrc, &tflDst);
+        SDL_RenderCopy(renderer, blocks[block].value.foliage, &bflSrc, &bflDst);
     }
 
     if (right) {
@@ -462,12 +513,12 @@ void drawBlockEdgesFoliage(SDL_Renderer* renderer, block* blocks, int b, int x, 
         bfrDst.w = 8;
         bfrDst.h = 8;
 
-        SDL_RenderCopy(renderer, blocks[block].foliage, &tfrSrc, &tfrDst);
-        SDL_RenderCopy(renderer, blocks[block].foliage, &bfrSrc, &bfrDst);
+        SDL_RenderCopy(renderer, blocks[block].value.foliage, &tfrSrc, &tfrDst);
+        SDL_RenderCopy(renderer, blocks[block].value.foliage, &bfrSrc, &bfrDst);
     }
 }
 
-void world_render_range(world w, int minx, int maxx, int miny, int maxy, float camx, float camy, block* blocks, SDL_Renderer* renderer) {
+void world_render_range(world w, int minx, int maxx, int miny, int maxy, float camx, float camy, struct blockhash* blocks, SDL_Renderer* renderer) {
     int width, height;
     SDL_GetRendererOutputSize(renderer, &width, &height);
 
@@ -478,7 +529,7 @@ void world_render_range(world w, int minx, int maxx, int miny, int maxy, float c
             if (block == 0)
                 continue;
             
-            if (blocks[block].shape == edges) {
+            if (blocks[block].value.shape == edges) {
                 drawBlockEdges(renderer, blocks, b, x, y, camx - (float)width / 32, camy - (float)height / 32);
             } else {
                 drawBlock(renderer, blocks, b, x, y, camx - (float)width / 32, camy - (float)height / 32);
@@ -490,17 +541,17 @@ void world_render_range(world w, int minx, int maxx, int miny, int maxy, float c
         for (int y = miny; y < maxy; y++) {
             int b = w.blocks[x][y];
             int block = b & 0xff;
-            if (blocks[block].foliage == NULL)
+            if (blocks[block].value.foliage == NULL)
                 continue;
             
-            if (blocks[block].shape == edges) {
+            if (blocks[block].value.shape == edges) {
                 drawBlockEdgesFoliage(renderer, blocks, b, x, y, camx - (float)width / 32, camy - (float)height / 32);
             }
         }
     }
 }
 
-void world_render(world w, float camx, float camy, block* blocks, SDL_Renderer* renderer) {
+void world_render(world w, float camx, float camy, struct blockhash* blocks, SDL_Renderer* renderer) {
     int width, height;
     SDL_GetRendererOutputSize(renderer, &width, &height);
     

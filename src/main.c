@@ -11,12 +11,15 @@
 
 #include "utils.h"
 #include "world.h"
+#include "assets.h"
 
 world w;
 SDL_Renderer *renderer;
-block *blocks = NULL;
+// block *blocks = NULL;
 SDL_Texture* playerParts[6];
 SDL_Texture* hat;
+
+Assets assets;
 
 float camx = 0;
 float camy = 0;
@@ -100,6 +103,8 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
+    init_assets(&assets, renderer);
+
     SDL_Texture* background = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STATIC, 1, 2);
     if (background == NULL) {
         printf("Failed to create background texture\n");
@@ -120,19 +125,13 @@ int main(int argc, char* argv[]) {
     SDL_SetTextureBlendMode(background, SDL_BLENDMODE_BLEND);
     SDL_SetTextureScaleMode(background, SDL_ScaleModeLinear);
     
-    arrput(blocks, create_block(NULL, NULL, true, false));
-    arrput(blocks, create_block(loadTexture("res/textures/grass.png"), loadTexture("res/textures/grass_foliage.png"), false, edges));
-    arrput(blocks, create_block(loadTexture("res/textures/dirt.png"), loadTexture("res/textures/dirt_foliage.png"), false, edges));
-    arrput(blocks, create_block(loadTexture("res/textures/water.png"), NULL, true, liquid));
-    arrput(blocks, create_block(loadTexture("res/textures/stone.png"), loadTexture("res/textures/stone_foliage.png"), false, edges));
-
-    playerParts[0] = loadTexture("res/textures/player_backarm.png");
-    playerParts[1] = loadTexture("res/textures/player_backleg.png");
-    playerParts[2] = loadTexture("res/textures/player_body.png");
-    playerParts[3] = loadTexture("res/textures/player_frontleg.png");
-    playerParts[4] = loadTexture("res/textures/player_head.png");
-    playerParts[5] = loadTexture("res/textures/player_frontarm.png");
-    hat = loadTexture("res/textures/classic_hat.png");
+    playerParts[0] = loadTexture("assets/textures/player_backarm.png");
+    playerParts[1] = loadTexture("assets/textures/player_backleg.png");
+    playerParts[2] = loadTexture("assets/textures/player_body.png");
+    playerParts[3] = loadTexture("assets/textures/player_frontleg.png");
+    playerParts[4] = loadTexture("assets/textures/player_head.png");
+    playerParts[5] = loadTexture("assets/textures/player_frontarm.png");
+    hat = loadTexture("assets/textures/classic_hat.png");
 
     w = world_init(blocks);
 
@@ -160,8 +159,8 @@ int main(int argc, char* argv[]) {
                         IMG_SavePNG(sshot, "screenshot.png");
                         SDL_FreeSurface(sshot);
                     } else if (e.key.keysym.sym == SDLK_F3) {
-                        SDL_Texture *sshot = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_TARGET, WORLD_WIDTH * 24, WORLD_HEIGHT * 24);
-                        SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormat(0, WORLD_WIDTH * 24, WORLD_HEIGHT * 24, 32, SDL_PIXELFORMAT_RGBA32);
+                        SDL_Texture *sshot = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_TARGET, WORLD_WIDTH * 16, WORLD_HEIGHT * 16);
+                        SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormat(0, WORLD_WIDTH * 16, WORLD_HEIGHT * 16, 32, SDL_PIXELFORMAT_RGBA32);
                         
                         SDL_SetRenderTarget(renderer, sshot);
                         world_render_range(w, 0, WORLD_WIDTH, 0, WORLD_HEIGHT, WORLD_WIDTH / 2, WORLD_HEIGHT / 2, blocks, renderer);
@@ -184,8 +183,8 @@ int main(int argc, char* argv[]) {
         if (fps < 144) {
             const uint8_t* keys = SDL_GetKeyboardState(NULL);
 
-            float moveX = (keys[SDL_SCANCODE_D] - keys[SDL_SCANCODE_A]) * 3;
-            float moveY = (keys[SDL_SCANCODE_W] - keys[SDL_SCANCODE_S]) * 3;
+            float moveX = (keys[SDL_SCANCODE_D] - keys[SDL_SCANCODE_A]) * 5;
+            float moveY = (keys[SDL_SCANCODE_W] - keys[SDL_SCANCODE_S]) * 5;
 
             playerframe += fabsf(moveX) * 8 * delta;
             if (playerframe >= 17) {
@@ -228,16 +227,18 @@ int main(int argc, char* argv[]) {
 
     SDL_DestroyWindow(window);
     for (int i = 0; i < arrlen(blocks); i++) {
-        SDL_DestroyTexture(blocks[i].tex);
-        SDL_DestroyTexture(blocks[i].foliage);
+        SDL_DestroyTexture(blocks[i].value.tex);
+        SDL_DestroyTexture(blocks[i].value.foliage);
     }
-    arrfree(blocks);
+    shfree(blocks);
     SDL_DestroyTexture(background);
     for (int i = 0; i < 6; i++) {
         SDL_DestroyTexture(playerParts[i]);
     }
     SDL_DestroyTexture(hat);
     SDL_DestroyRenderer(renderer);
+
+    free_assets(&assets);
 
     return 0;
 }
