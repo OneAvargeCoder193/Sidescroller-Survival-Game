@@ -73,11 +73,51 @@ void registerBlock(const char* key, const cJSON* json, Assets *assets) {
 }
 
 struct ffp {
-    int x; int y;
+    int x; int y; int block;
 };
 
 int connectBlock(int a, int b) {
     return blocks[a].value.connects[b];
+}
+
+bool contains(struct ffp* p, int x, int y, int block) {
+    for (int i = 0; i < arrlen(p); i++) {
+        if (p[i].x == x && p[i].y == y && p[i].block == block) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+struct ffp* floodfill(world w, int x, int y, int block) {
+    struct ffp* points = NULL;
+    struct ffp* allpoints = NULL;
+
+    arrput(points, ((struct ffp){x, y, block}));
+    arrput(allpoints, ((struct ffp){x, y, block}));
+
+    while (arrlen(points) != 0) {
+        struct ffp p = arrpop(points);
+
+        if ((world_getblock(w, p.x + 1, p.y) == 0 || world_getblock(w, p.x + 1, p.y) == block) && !contains(allpoints, p.x + 1, p.y, p.block)) {
+            arrput(points, ((struct ffp){p.x + 1, p.y, p.block}));
+            arrput(allpoints, ((struct ffp){p.x + 1, p.y, p.block}));
+        }
+
+        if ((world_getblock(w, p.x - 1, p.y) == 0 || world_getblock(w, p.x - 1, p.y) == block) && !contains(allpoints, p.x - 1, p.y, p.block)) {
+            arrput(points, ((struct ffp){p.x - 1, p.y, p.block}));
+            arrput(allpoints, ((struct ffp){p.x - 1, p.y, p.block}));
+        }
+
+        if ((world_getblock(w, p.x, p.y - 1) == 0 || world_getblock(w, p.x, p.y - 1) == block) && !contains(allpoints, p.x, p.y - 1, p.block)) {
+            arrput(points, ((struct ffp){p.x, p.y - 1, p.block}));
+            arrput(allpoints, ((struct ffp){p.x, p.y - 1, p.block}));
+        }
+    }
+
+    arrfree(points);
+
+    return allpoints;
 }
 
 world world_init(struct blockhash* blocks) {
@@ -93,9 +133,14 @@ world world_init(struct blockhash* blocks) {
 
     struct ffp* fillWaterPos = NULL;
 
+    float h[WORLD_WIDTH];
+    for (int x = 0; x < WORLD_WIDTH; x++) {
+        h[x] = fnlGetNoise2D(&n, x / 2.0, 0) * 30 + WORLD_HEIGHT / 2;
+    }
+
     for (int x = 0; x < WORLD_WIDTH; x++) {
         for (int y = 0; y < WORLD_HEIGHT; y++) {
-            float height = fnlGetNoise2D(&n, x / 2.0, 0) * 30 + WORLD_HEIGHT / 2;
+            float height = h[x];
             const char* block = "game:air";
             if (y < height) {
                 if (y >= WORLD_HEIGHT / 2) {
@@ -111,7 +156,7 @@ world world_init(struct blockhash* blocks) {
                 block = "game:stone";
             }
             if (strcmp(block, "game:air") == 0 && y == WORLD_HEIGHT / 2) {
-                arrput(fillWaterPos, ((struct ffp){x, y}));
+                arrput(fillWaterPos, ((struct ffp){x, y, shgeti(blocks, "game:water")}));
             }
             if (fabsf(fnlGetNoise2D(&n, x, y)) < 0.2 && fabsf(fnlGetNoise2D(&n, x + 5399, y + 3494)) < 0.2) {
                 block = "game:air";
@@ -143,18 +188,46 @@ world world_init(struct blockhash* blocks) {
         int x = p.x;
         int y = p.y;
 
-        w.blocks[x][y] = shgeti(blocks, "game:water");
+        w.blocks[x][y] = p.block;
 
         if (world_getblock(w, x + 1, y) == 0) {
-            arrput(fillWaterPos, ((struct ffp){x + 1, y}));
+            arrput(fillWaterPos, ((struct ffp){x + 1, y, p.block}));
         }
 
         if (world_getblock(w, x - 1, y) == 0) {
-            arrput(fillWaterPos, ((struct ffp){x - 1, y}));
+            arrput(fillWaterPos, ((struct ffp){x - 1, y, p.block}));
         }
 
         if (world_getblock(w, x, y - 1) == 0) {
-            arrput(fillWaterPos, ((struct ffp){x, y - 1}));
+            arrput(fillWaterPos, ((struct ffp){x, y - 1, p.block}));
+        }
+    }
+
+    for (int x = 0; x < WORLD_WIDTH; x++) {
+        for (int y = 0; y < WORLD_HEIGHT / 2; y++) {
+            if (w.blocks[x][y] == 0 && y < h[x]) {
+                float chance = (WORLD_HEIGHT - y - 1) / (float)WORLD_HEIGHT;
+                chance *= 0.02;
+                if ((murmur_hash_combine(x, y) & 0xff) / 255.0 < chance) {
+                    struct ffp* points = floodfill(w, x, y, shgeti(blocks, "game:lava"));
+                    int miny = WORLD_HEIGHT;
+                    int minx = 0;
+                    for (int i = 0; i < arrlen(points); i++) {
+                        if (points[i].y < miny) {
+                            miny = points[i].y;
+                            minx = points[i].x;
+                        }
+                    }
+
+                    arrfree(points);
+
+                    struct ffp* bs = floodfill(w, minx, miny + 4, shgeti(blocks, "game:lava"));
+                    for (int i = 0; i < arrlen(bs); i++) {
+                        w.blocks[bs[i].x][bs[i].y] = bs[i].block;
+                    }
+                    arrfree(bs);
+                }
+            }
         }
     }
 
