@@ -209,6 +209,14 @@ void init_assets(Assets *assets, SDL_Renderer *renderer) {
         registerBlock(assets->blocks[i].key, assets->blocks[i].value, assets);
     }
 
+    for (size_t i = 0; i < shlen(assets->blocks); ++i) {
+        registerConnects(assets->blocks[i].key, assets->blocks[i].value);
+    }
+
+    for (size_t i = 0; i < shlen(assets->blocks); ++i) {
+        fixConnectConflict(assets->blocks[i].key);
+    }
+
     for (size_t i = 0; i < shlen(assets->entities); ++i) {
         registerEntityType(assets->entities[i].key, assets->entities[i].value, assets);
     }

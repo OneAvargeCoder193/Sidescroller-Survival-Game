@@ -34,7 +34,6 @@ blockshape string_to_blockshape(const char* str) {
 void registerBlock(const char* key, const cJSON* json, Assets *assets) {
     cJSON* textureJson = cJSON_GetObjectItemCaseSensitive(json, "texture");
     cJSON* foliageJson = cJSON_GetObjectItemCaseSensitive(json, "foliage");
-    cJSON* connectsJson = cJSON_GetObjectItemCaseSensitive(json, "connects");
     cJSON* shapeJson = cJSON_GetObjectItemCaseSensitive(json, "shape");
 
     SDL_Texture* tex = NULL;
@@ -45,18 +44,6 @@ void registerBlock(const char* key, const cJSON* json, Assets *assets) {
     if (foliageJson)
         foliage = shget(assets->blockTextures, foliageJson->valuestring);
     
-    int l = shlen(blocks);
-    int* connects = malloc(l * sizeof(int));
-    memset(connects, 0, l * sizeof(int));
-    connects[shgeti(blocks, key)] = 1;
-    if (connectsJson) {
-        for (int i = 0; i < cJSON_GetArraySize(connectsJson); i++) {
-            char* block = cJSON_GetArrayItem(connectsJson, i)->valuestring;
-            int blockid = shgeti(blocks, block);
-            connects[blockid] = 1;
-        }
-    }
-    
     blockshape shape = solid;
     if (shapeJson)
         shape = string_to_blockshape(shapeJson->valuestring);
@@ -64,12 +51,51 @@ void registerBlock(const char* key, const cJSON* json, Assets *assets) {
     block res;
     res.tex = tex;
     res.foliage = foliage;
-    res.connects = connects;
+    res.connects = NULL;
     res.shape = shape;
 
     // blocks[shgeti(blocks, key)].value = res;
 
     shput(blocks, key, res);
+}
+
+void registerConnects(const char* key, const cJSON* json) {
+    cJSON* connectsJson = cJSON_GetObjectItemCaseSensitive(json, "connects");
+    cJSON* connectsAllJson = cJSON_GetObjectItemCaseSensitive(json, "connects_all");
+
+    bool connects_all = false;
+    if (connectsAllJson)
+        connects_all = connectsAllJson->valueint;
+    
+    int l = shlen(blocks);
+    int* connects = malloc(l * sizeof(int));
+    memset(connects, connects_all, l * sizeof(int));
+    connects[0] = 0;
+    connects[shgeti(blocks, key)] = 1;
+    if (connectsJson) {
+        for (int i = 0; i < cJSON_GetArraySize(connectsJson); i++) {
+            char* block = cJSON_GetArrayItem(connectsJson, i)->valuestring;
+            int blockid = shgeti(blocks, block);
+            connects[blockid] = 1;
+        }
+    } else if (connects_all) {
+        for (int i = 0; i < shlen(blocks); i++) {
+            if (blocks[i].value.shape != edges)
+                connects[i] = 0;
+        }
+    }
+
+    blocks[shgeti(blocks, key)].value.connects = connects;
+}
+
+void fixConnectConflict(const char* key) {
+    if (blocks[shgeti(blocks, key)].value.shape == edges)
+    {
+        for (int i = 0; i < shlen(blocks); i++) {
+            if (blocks[i].value.shape == edges && blocks[i].value.connects[shgeti(blocks, key)] == 0 && blocks[shgeti(blocks, key)].value.connects[i] == 0)
+                blocks[shgeti(blocks, key)].value.connects[i] = 1;
+        }
+    }
 }
 
 struct ffp {

@@ -1,5 +1,6 @@
 {
     "shape": "edges",
     "texture": "game:stone",
-    "foliage": "game:stone_foliage"
+    "foliage": "game:stone_foliage",
+    "connects_all": true
 }

@@ -2,5 +2,5 @@
     "shape": "edges",
     "texture": "game:dirt",
     "foliage": "game:dirt_foliage",
-    "connects": ["game:grass", "game:stone"]
+    "connects": ["game:grass"]
 }
