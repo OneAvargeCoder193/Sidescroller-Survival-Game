@@ -12,10 +12,10 @@
 #include "utils.h"
 #include "world.h"
 #include "assets.h"
+#include "entity.h"
 
 world w;
 SDL_Renderer *renderer;
-// block *blocks = NULL;
 SDL_Texture* playerParts[6];
 SDL_Texture* hat;
 
@@ -27,14 +27,15 @@ float camy = 0;
 float playerx = WORLD_WIDTH / 2;
 float playery = WORLD_HEIGHT / 2;
 int playerside = 0;
-float playerframe = 5;
+float playerframe = 0;
 typedef enum entitystate {
     idle,
     walking
 } entitystate;
-entitystate playerstate;
+entitystate playerstate = idle;
 
 void render() {
+
     int width, height;
     SDL_GetRendererOutputSize(renderer, &width, &height);
     
@@ -43,6 +44,10 @@ void render() {
     
     camx = fmaxf(renplayerx, (float)width / 32);
     camy = fmaxf(renplayery, (float)height / 32);
+    
+    for (int i = 0; i < arrlen(entities); i++) {
+        renderEntity(renderer, entities[i], camx, camy);
+    }
 
     int animId = (int)playerframe;
     int side = playerside;
@@ -125,15 +130,18 @@ int main(int argc, char* argv[]) {
     SDL_SetTextureBlendMode(background, SDL_BLENDMODE_BLEND);
     SDL_SetTextureScaleMode(background, SDL_ScaleModeLinear);
     
-    playerParts[0] = loadTexture("assets/textures/player_backarm.png");
-    playerParts[1] = loadTexture("assets/textures/player_backleg.png");
-    playerParts[2] = loadTexture("assets/textures/player_body.png");
-    playerParts[3] = loadTexture("assets/textures/player_frontleg.png");
-    playerParts[4] = loadTexture("assets/textures/player_head.png");
-    playerParts[5] = loadTexture("assets/textures/player_frontarm.png");
-    hat = loadTexture("assets/textures/classic_hat.png");
+    playerParts[0] = shget(assets.entityTextures, "game:player_backarm");
+    playerParts[1] = shget(assets.entityTextures, "game:player_backleg");
+    playerParts[2] = shget(assets.entityTextures, "game:player_body");
+    playerParts[3] = shget(assets.entityTextures, "game:player_frontleg");
+    playerParts[4] = shget(assets.entityTextures, "game:player_head");
+    playerParts[5] = shget(assets.entityTextures, "game:player_frontarm");
+    hat = shget(assets.entityTextures, "game:classic_hat");
 
     w = world_init(blocks);
+
+    entity e = createEntity("game:mossman", WORLD_WIDTH / 2, WORLD_HEIGHT / 2, 0, 0);
+    arrput(entities, e);
 
     uint64_t start = SDL_GetPerformanceCounter();
     uint64_t next = SDL_GetPerformanceCounter();
@@ -183,26 +191,29 @@ int main(int argc, char* argv[]) {
         if (fps < 144) {
             const uint8_t* keys = SDL_GetKeyboardState(NULL);
 
-            float moveX = (keys[SDL_SCANCODE_D] - keys[SDL_SCANCODE_A]) * 5;
-            float moveY = (keys[SDL_SCANCODE_W] - keys[SDL_SCANCODE_S]) * 5;
+            float moveX = (keys[SDL_SCANCODE_D] - keys[SDL_SCANCODE_A]) * 8;
+            float moveY = (keys[SDL_SCANCODE_W] - keys[SDL_SCANCODE_S]) * 8;
 
-            playerframe += fabsf(moveX) * 8 * delta;
-            if (playerframe >= 17) {
-                playerframe -= 12;
+            if (playerstate == walking) {
+                playerframe += fabsf(moveX) * 8 * delta;
+                if (playerframe >= 21) {
+                    playerframe -= 12;
+                }
             }
 
             if (moveX < 0) {
                 playerside = 0;
-                if (playerstate == idle)
-                    playerframe = 5;
+                if (playerstate != walking)
+                    playerframe = 9;
                 playerstate = walking;
             } else if (moveX > 0) {
                 playerside = 1;
-                if (playerstate == idle)
-                    playerframe = 5;
+                if (playerstate != walking)
+                    playerframe = 9;
                 playerstate = walking;
             } else if (moveX == 0) {
-                playerframe = 0;
+                if (playerstate != idle)
+                    playerframe = 0;
                 playerstate = idle;
             }
 
@@ -229,13 +240,10 @@ int main(int argc, char* argv[]) {
     for (int i = 0; i < arrlen(blocks); i++) {
         SDL_DestroyTexture(blocks[i].value.tex);
         SDL_DestroyTexture(blocks[i].value.foliage);
+        free(blocks[i].value.connects);
     }
     shfree(blocks);
     SDL_DestroyTexture(background);
-    for (int i = 0; i < 6; i++) {
-        SDL_DestroyTexture(playerParts[i]);
-    }
-    SDL_DestroyTexture(hat);
     SDL_DestroyRenderer(renderer);
 
     free_assets(&assets);

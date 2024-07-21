@@ -13,7 +13,7 @@ block create_block(SDL_Texture* tex, SDL_Texture* foliage, bool transparent, blo
     block res;
     res.tex = tex;
     res.foliage = foliage;
-    res.transparent = transparent;
+    // res.transparent = transparent;
     res.shape = shape;
     return res;
 }
@@ -34,20 +34,28 @@ blockshape string_to_blockshape(const char* str) {
 void registerBlock(const char* key, const cJSON* json, Assets *assets) {
     cJSON* textureJson = cJSON_GetObjectItemCaseSensitive(json, "texture");
     cJSON* foliageJson = cJSON_GetObjectItemCaseSensitive(json, "foliage");
-    cJSON* transparentJson = cJSON_GetObjectItemCaseSensitive(json, "transparent");
+    cJSON* connectsJson = cJSON_GetObjectItemCaseSensitive(json, "connects");
     cJSON* shapeJson = cJSON_GetObjectItemCaseSensitive(json, "shape");
 
     SDL_Texture* tex = NULL;
     if (textureJson)
-        tex = shget(assets->textures, textureJson->valuestring);
+        tex = shget(assets->blockTextures, textureJson->valuestring);
     
     SDL_Texture* foliage = NULL;
     if (foliageJson)
-        foliage = shget(assets->textures, foliageJson->valuestring);
+        foliage = shget(assets->blockTextures, foliageJson->valuestring);
     
-    bool transparent = false;
-    if (transparentJson)
-        transparent = transparentJson->valueint;
+    int l = shlen(blocks);
+    int* connects = malloc(l * sizeof(int));
+    memset(connects, 0, l * sizeof(int));
+    connects[shgeti(blocks, key)] = 1;
+    if (connectsJson) {
+        for (int i = 0; i < cJSON_GetArraySize(connectsJson); i++) {
+            char* block = cJSON_GetArrayItem(connectsJson, i)->valuestring;
+            int blockid = shgeti(blocks, block);
+            connects[blockid] = 1;
+        }
+    }
     
     blockshape shape = solid;
     if (shapeJson)
@@ -56,10 +64,20 @@ void registerBlock(const char* key, const cJSON* json, Assets *assets) {
     block res;
     res.tex = tex;
     res.foliage = foliage;
-    res.transparent = transparent;
+    res.connects = connects;
     res.shape = shape;
 
+    // blocks[shgeti(blocks, key)].value = res;
+
     shput(blocks, key, res);
+}
+
+struct ffp {
+    int x; int y;
+};
+
+int connectBlock(int a, int b) {
+    return blocks[a].value.connects[b];
 }
 
 world world_init(struct blockhash* blocks) {
@@ -73,8 +91,7 @@ world world_init(struct blockhash* blocks) {
     rock.noise_type = FNL_NOISE_CELLULAR;
     rock.cellular_distance_func = FNL_CELLULAR_DISTANCE_EUCLIDEAN;
 
-    int* fillWaterPosX = NULL;
-    int* fillWaterPosY = NULL;
+    struct ffp* fillWaterPos = NULL;
 
     for (int x = 0; x < WORLD_WIDTH; x++) {
         for (int y = 0; y < WORLD_HEIGHT; y++) {
@@ -94,8 +111,7 @@ world world_init(struct blockhash* blocks) {
                 block = "game:stone";
             }
             if (strcmp(block, "game:air") == 0 && y == WORLD_HEIGHT / 2) {
-                arrput(fillWaterPosX, x);
-                arrput(fillWaterPosY, y);
+                arrput(fillWaterPos, ((struct ffp){x, y}));
             }
             if (fabsf(fnlGetNoise2D(&n, x, y)) < 0.2 && fabsf(fnlGetNoise2D(&n, x + 5399, y + 3494)) < 0.2) {
                 block = "game:air";
@@ -107,45 +123,56 @@ world world_init(struct blockhash* blocks) {
                     block = "game:stone";
                 }
             }
+
+            if (strcmp(block, "game:stone") == 0) {
+                int nx = x + fnlGetNoise2D(&n, x - 2283, y - 9872) * 10;
+                int ny = y + fnlGetNoise2D(&n, x + 3939, y + 2939) * 10;
+                if (fnlGetNoise2D(&rock, nx - 2939, ny + 9593) < -0.9) {
+                    block = "game:copper_ore";
+                }
+                if (fnlGetNoise2D(&rock, nx + 39032, ny - 2939) < -0.9) {
+                    block = "game:tin_ore";
+                }
+            }
             w.blocks[x][y] = shgeti(blocks, block);
         }
     }
 
-    while (arrlen(fillWaterPosX) != 0) {
-        int x = arrpop(fillWaterPosX);
-        int y = arrpop(fillWaterPosY);
+    while (arrlen(fillWaterPos) != 0) {
+        struct ffp p = arrpop(fillWaterPos);
+        int x = p.x;
+        int y = p.y;
 
         w.blocks[x][y] = shgeti(blocks, "game:water");
 
         if (world_getblock(w, x + 1, y) == 0) {
-            arrput(fillWaterPosX, x + 1);
-            arrput(fillWaterPosY, y);
+            arrput(fillWaterPos, ((struct ffp){x + 1, y}));
         }
 
         if (world_getblock(w, x - 1, y) == 0) {
-            arrput(fillWaterPosX, x - 1);
-            arrput(fillWaterPosY, y);
+            arrput(fillWaterPos, ((struct ffp){x - 1, y}));
         }
 
         if (world_getblock(w, x, y - 1) == 0) {
-            arrput(fillWaterPosX, x);
-            arrput(fillWaterPosY, y - 1);
+            arrput(fillWaterPos, ((struct ffp){x, y - 1}));
         }
     }
 
     for (int x = 0; x < WORLD_WIDTH; x++) {
         for (int y = 0; y < WORLD_HEIGHT; y++) {
             uint8_t data = world_getdata(w, x, y);
-            blockshape shape = blocks[world_getblock(w, x, y)].value.shape;
+            int bl = world_getblock(w, x, y);
+            block b = blocks[bl].value;
+            blockshape shape = b.shape;
             if (shape == edges) {
-                data |= (blocks[world_getblock(w, x, y + 1)].value.transparent);
-                data |= (blocks[world_getblock(w, x, y - 1)].value.transparent) << 1;
-                data |= (blocks[world_getblock(w, x - 1, y)].value.transparent) << 2;
-                data |= (blocks[world_getblock(w, x + 1, y)].value.transparent) << 3;
-                data |= (blocks[world_getblock(w, x - 1, y + 1)].value.transparent) << 4;
-                data |= (blocks[world_getblock(w, x + 1, y + 1)].value.transparent) << 5;
-                data |= (blocks[world_getblock(w, x - 1, y - 1)].value.transparent) << 6;
-                data |= (blocks[world_getblock(w, x + 1, y - 1)].value.transparent) << 7;
+                data |= (!connectBlock(bl, world_getblock(w, x, y + 1)));
+                data |= (!connectBlock(bl, world_getblock(w, x, y - 1))) << 1;
+                data |= (!connectBlock(bl, world_getblock(w, x - 1, y))) << 2;
+                data |= (!connectBlock(bl, world_getblock(w, x + 1, y))) << 3;
+                data |= (!connectBlock(bl, world_getblock(w, x - 1, y + 1))) << 4;
+                data |= (!connectBlock(bl, world_getblock(w, x + 1, y + 1))) << 5;
+                data |= (!connectBlock(bl, world_getblock(w, x - 1, y - 1))) << 6;
+                data |= (!connectBlock(bl, world_getblock(w, x + 1, y - 1))) << 7;
             } else if (shape == liquid) {
                 if (blocks[world_getblock(w, x, y + 1)].value.shape != liquid) {
                     data = 4;
@@ -159,8 +186,7 @@ world world_init(struct blockhash* blocks) {
         }
     }
 
-    arrfree(fillWaterPosX);
-    arrfree(fillWaterPosY);
+    arrfree(fillWaterPos);
     return w;
 }
 

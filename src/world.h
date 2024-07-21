@@ -20,7 +20,7 @@ typedef enum blockshape {
 typedef struct block {
     SDL_Texture* tex;
     SDL_Texture* foliage;
-    bool transparent;
+    int* connects;
     blockshape shape;
 } block;
 

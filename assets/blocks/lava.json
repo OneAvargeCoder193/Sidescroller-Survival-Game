@@ -1,5 +1,4 @@
 {
     "shape": "liquid",
-    "texture": "game:lava",
-    "transparent": true
+    "texture": "game:lava"
 }

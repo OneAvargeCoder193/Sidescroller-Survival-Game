@@ -1,5 +1,7 @@
 #include "utils.h"
 
+#include <stdio.h>
+
 uint32_t murmur_hash_combine(int32_t h1, int32_t h2) {
     const uint32_t seed = 0; // Initial seed
     const uint32_t c1 = 0xcc9e2d51;
@@ -37,4 +39,31 @@ uint32_t murmur_hash_combine(int32_t h1, int32_t h2) {
     hash ^= hash >> 16;
 
     return hash;
+}
+
+const cJSON* load_json(const char *filepath) {
+    FILE *file = fopen(filepath, "r");
+    if (!file) {
+        fprintf(stderr, "Error opening JSON file %s\n", filepath);
+        return NULL;
+    }
+    
+    fseek(file, 0, SEEK_END);
+    long length = ftell(file);
+    fseek(file, 0, SEEK_SET);
+    
+    char *data = malloc(length + 1);
+    fread(data, 1, length, file);
+    data[length] = '\0';
+    
+    fclose(file);
+    
+    const cJSON *json = cJSON_Parse(data);
+    
+    free(data);
+    
+    if (!json) {
+        fprintf(stderr, "Error parsing JSON file %s\n", filepath);
+    }
+    return json;
 }
