@@ -1,6 +1,5 @@
 {
     "shape": "edges",
     "texture": "game:tin_ore",
-    "foliage": "game:tin_ore_foliage",
-    "connects": ["game:stone"]
+    "foliage": "game:tin_ore_foliage"
 }
