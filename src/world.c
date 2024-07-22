@@ -158,6 +158,7 @@ world world_init(struct blockhash* blocks) {
     rock.cellular_distance_func = FNL_CELLULAR_DISTANCE_EUCLIDEAN;
 
     struct ffp* fillWaterPos = NULL;
+    struct ffp* waterpos = NULL;
 
     float h[WORLD_WIDTH];
     for (int x = 0; x < WORLD_WIDTH; x++) {
@@ -183,6 +184,7 @@ world world_init(struct blockhash* blocks) {
             }
             if (strcmp(block, "game:air") == 0 && y == WORLD_HEIGHT / 2) {
                 arrput(fillWaterPos, ((struct ffp){x, y, shgeti(blocks, "game:water")}));
+                arrput(waterpos, ((struct ffp){x, y, shgeti(blocks, "game:water")}));
             }
             if (fabsf(fnlGetNoise2D(&n, x, y)) < 0.2 && fabsf(fnlGetNoise2D(&n, x + 5399, y + 3494)) < 0.2) {
                 block = "game:air";
@@ -214,24 +216,27 @@ world world_init(struct blockhash* blocks) {
         int x = p.x;
         int y = p.y;
 
-        w.blocks[x][y] = p.block;
-
-        if (world_getblock(w, x + 1, y) == 0) {
+        if (world_getblock(w, x + 1, y) == 0 && !contains(waterpos, x + 1, y, p.block)) {
             arrput(fillWaterPos, ((struct ffp){x + 1, y, p.block}));
+            arrput(waterpos, ((struct ffp){x + 1, y, p.block}));
         }
 
-        if (world_getblock(w, x - 1, y) == 0) {
+        if (world_getblock(w, x - 1, y) == 0 && !contains(waterpos, x - 1, y, p.block)) {
             arrput(fillWaterPos, ((struct ffp){x - 1, y, p.block}));
+            arrput(waterpos, ((struct ffp){x - 1, y, p.block}));
         }
 
-        if (world_getblock(w, x, y - 1) == 0) {
+        if (world_getblock(w, x, y - 1) == 0 && !contains(waterpos, x, y - 1, p.block)) {
             arrput(fillWaterPos, ((struct ffp){x, y - 1, p.block}));
+            arrput(waterpos, ((struct ffp){x, y - 1, p.block}));
         }
     }
+    
+    arrfree(fillWaterPos);
 
     for (int x = 0; x < WORLD_WIDTH; x++) {
         for (int y = 0; y < WORLD_HEIGHT / 2; y++) {
-            if (w.blocks[x][y] == 0 && y < h[x]) {
+            if (w.blocks[x][y] == 0 && y < h[x] && !contains(waterpos, x, y, shgeti(blocks, "game:water"))) {
                 float chance = (WORLD_HEIGHT - y - 1) / (float)WORLD_HEIGHT;
                 chance *= 0.02;
                 if ((murmur_hash_combine(x, y) & 0xff) / 255.0 < chance) {
@@ -256,6 +261,16 @@ world world_init(struct blockhash* blocks) {
             }
         }
     }
+
+    for (int i = 0; i < arrlen(waterpos); i++) {
+        if (world_getblock(w, waterpos[i].x, waterpos[i].y) == 0) {
+            w.blocks[waterpos[i].x][waterpos[i].y] = waterpos[i].block;
+            if (world_getblock(w, waterpos[i].x, waterpos[i].y - 1) == shgeti(blocks, "game:lava")) {
+                w.blocks[waterpos[i].x][waterpos[i].y] = shgeti(blocks, "game:obsidian");
+            }
+        }
+    }
+    arrfree(waterpos);
 
     for (int x = 0; x < WORLD_WIDTH; x++) {
         for (int y = 0; y < WORLD_HEIGHT; y++) {
@@ -285,7 +300,6 @@ world world_init(struct blockhash* blocks) {
         }
     }
 
-    arrfree(fillWaterPos);
     return w;
 }
 
