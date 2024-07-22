@@ -67,16 +67,10 @@ void registerBlock(const char* key, const cJSON* json, Assets *assets) {
 
 void registerConnects(const char* key, const cJSON* json) {
     cJSON* connectsJson = cJSON_GetObjectItemCaseSensitive(json, "connects");
-    cJSON* connectsAllJson = cJSON_GetObjectItemCaseSensitive(json, "connects_all");
 
-    bool connects_all = false;
-    if (connectsAllJson)
-        connects_all = connectsAllJson->valueint;
-    
     int l = shlen(blocks);
     int* connects = malloc(l * sizeof(int));
-    memset(connects, connects_all, l * sizeof(int));
-    connects[0] = 0;
+    memset(connects, 0, l * sizeof(int));
     connects[shgeti(blocks, key)] = 1;
     if (connectsJson) {
         for (int i = 0; i < cJSON_GetArraySize(connectsJson); i++) {
@@ -84,13 +78,8 @@ void registerConnects(const char* key, const cJSON* json) {
             int blockid = shgeti(blocks, block);
             connects[blockid] = 1;
         }
-    } else if (connects_all) {
-        for (int i = 0; i < shlen(blocks); i++) {
-            if (blocks[i].value.shape != edges)
-                connects[i] = 0;
-        }
     }
-
+    
     blocks[shgeti(blocks, key)].value.connects = connects;
 }
 
