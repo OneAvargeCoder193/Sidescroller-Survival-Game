@@ -2,5 +2,5 @@
     "shape": "edges",
     "texture": "game:dirt",
     "foliage": "game:dirt_foliage",
-    "connects_all": true
+    "connects": ["game:grass", "game:tin_ore", "game:copper_ore"]
 }

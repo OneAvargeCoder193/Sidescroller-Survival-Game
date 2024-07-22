@@ -2,5 +2,5 @@
     "shape": "edges",
     "texture": "game:stone",
     "foliage": "game:stone_foliage",
-    "connects_all": false
+    "connects": ["game:copper_ore", "game:tin_ore"]
 }
