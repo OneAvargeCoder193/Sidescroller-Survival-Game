@@ -35,6 +35,7 @@ void registerBlock(const char* key, const cJSON* json, Assets *assets) {
     cJSON* textureJson = cJSON_GetObjectItemCaseSensitive(json, "texture");
     cJSON* foliageJson = cJSON_GetObjectItemCaseSensitive(json, "foliage");
     cJSON* shapeJson = cJSON_GetObjectItemCaseSensitive(json, "shape");
+    cJSON* innerBordersJson = cJSON_GetObjectItemCaseSensitive(json, "innerBorders");
 
     SDL_Texture* tex = NULL;
     if (textureJson)
@@ -48,11 +49,16 @@ void registerBlock(const char* key, const cJSON* json, Assets *assets) {
     if (shapeJson)
         shape = string_to_blockshape(shapeJson->valuestring);
     
+    bool innerBorders = false;
+    if (innerBordersJson)
+        innerBorders = innerBordersJson->valueint;
+    
     block res;
     res.tex = tex;
     res.foliage = foliage;
     res.connects = NULL;
     res.shape = shape;
+    res.innerBorders = innerBorders;
 
     // blocks[shgeti(blocks, key)].value = res;
 
@@ -274,19 +280,35 @@ world world_init(struct blockhash* blocks) {
 
     for (int x = 0; x < WORLD_WIDTH; x++) {
         for (int y = 0; y < WORLD_HEIGHT; y++) {
-            uint8_t data = world_getdata(w, x, y);
+            uint32_t data = world_getdata(w, x, y);
             int bl = world_getblock(w, x, y);
             block b = blocks[bl].value;
             blockshape shape = b.shape;
             if (shape == edges) {
-                data |= (!connectBlock(bl, world_getblock(w, x, y + 1)));
-                data |= (!connectBlock(bl, world_getblock(w, x, y - 1))) << 1;
-                data |= (!connectBlock(bl, world_getblock(w, x - 1, y))) << 2;
-                data |= (!connectBlock(bl, world_getblock(w, x + 1, y))) << 3;
-                data |= (!connectBlock(bl, world_getblock(w, x - 1, y + 1))) << 4;
-                data |= (!connectBlock(bl, world_getblock(w, x + 1, y + 1))) << 5;
-                data |= (!connectBlock(bl, world_getblock(w, x - 1, y - 1))) << 6;
-                data |= (!connectBlock(bl, world_getblock(w, x + 1, y - 1))) << 7;
+                int top = world_getblock(w, x, y + 1);
+                int bottom = world_getblock(w, x, y - 1);
+                int left = world_getblock(w, x - 1, y);
+                int right = world_getblock(w, x + 1, y);
+                int topleft = world_getblock(w, x - 1, y + 1);
+                int topright = world_getblock(w, x + 1, y + 1);
+                int bottomleft = world_getblock(w, x - 1, y - 1);
+                int bottomright = world_getblock(w, x + 1, y - 1);
+                data |= (!connectBlock(bl, top)) << 0;
+                data |= (!connectBlock(bl, bottom)) << 1;
+                data |= (!connectBlock(bl, left)) << 2;
+                data |= (!connectBlock(bl, right)) << 3;
+                data |= (!connectBlock(bl, topleft)) << 4;
+                data |= (!connectBlock(bl, topright)) << 5;
+                data |= (!connectBlock(bl, bottomleft)) << 6;
+                data |= (!connectBlock(bl, bottomright)) << 7;
+                data |= (blocks[top].value.shape != edges) << 8;
+                data |= (blocks[bottom].value.shape != edges) << 9;
+                data |= (blocks[left].value.shape != edges) << 10;
+                data |= (blocks[right].value.shape != edges) << 11;
+                data |= (blocks[topleft].value.shape != edges) << 12;
+                data |= (blocks[topright].value.shape != edges) << 13;
+                data |= (blocks[bottomleft].value.shape != edges) << 14;
+                data |= (blocks[bottomright].value.shape != edges) << 15;
             } else if (shape == liquid) {
                 if (blocks[world_getblock(w, x, y + 1)].value.shape != liquid) {
                     data = 4;
@@ -310,13 +332,13 @@ uint8_t world_getblock(world w, int x, int y) {
     return w.blocks[x][y] & 0xff;
 }
 
-uint8_t world_getdata(world w, int x, int y) {
+uint32_t world_getdata(world w, int x, int y) {
     if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
         return 0;
     return w.blocks[x][y] >> 8;
 }
 
-uint16_t world_getblockdata(world w, int x, int y) {
+uint32_t world_getblockdata(world w, int x, int y) {
     if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
         return 1;
     return w.blocks[x][y];
@@ -328,13 +350,13 @@ void world_setblock(world w, int x, int y, uint8_t v) {
     w.blocks[x][y] = w.blocks[x][y] & ~0xff | v;
 }
 
-void world_setdata(world w, int x, int y, uint8_t v) {
+void world_setdata(world w, int x, int y, uint32_t v) {
     if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
         return;
     w.blocks[x][y] = w.blocks[x][y] & 0xff | (v << 8);
 }
 
-void world_setblockdata(world w, int x, int y, uint16_t v) {
+void world_setblockdata(world w, int x, int y, uint32_t v) {
     if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
         return;
     w.blocks[x][y] = v;
@@ -366,14 +388,18 @@ void drawBlockEdges(SDL_Renderer* renderer, struct blockhash* blocks, int b, int
     int data = b >> 8;
     int block = b & 0xff;
 
-    int top = data & 1;
-    int bottom = (data >> 1) & 1;
-    int left = (data >> 2) & 1;
-    int right = (data >> 3) & 1;
-    int topLeft = (data >> 4) & 1;
-    int topRight = (data >> 5) & 1;
-    int bottomLeft = (data >> 6) & 1;
-    int bottomRight = (data >> 7) & 1;
+    if (blocks[block].value.innerBorders) {
+        data <<= 8;
+    }
+
+    int top = (data >> 8) & 1;
+    int bottom = (data >> 9) & 1;
+    int left = (data >> 10) & 1;
+    int right = (data >> 11) & 1;
+    int topLeft = (data >> 12) & 1;
+    int topRight = (data >> 13) & 1;
+    int bottomLeft = (data >> 14) & 1;
+    int bottomRight = (data >> 15) & 1;
 
     int topLeftTextureId = murmur_hash_combine(x, y) % 16;
     int topRightTextureId = murmur_hash_combine(x + 29402, y + 3092) % 16;

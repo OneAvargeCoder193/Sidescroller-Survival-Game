@@ -22,6 +22,7 @@ typedef struct block {
     SDL_Texture* foliage;
     int* connects;
     blockshape shape;
+    bool innerBorders;
 } block;
 
 struct blockhash {
@@ -37,18 +38,18 @@ void registerConnects(const char* key, const cJSON* json);
 void fixConnectConflict(const char* key);
 
 typedef struct world {
-    uint16_t blocks[WORLD_WIDTH][WORLD_HEIGHT];
+    uint32_t blocks[WORLD_WIDTH][WORLD_HEIGHT];
 } world;
 
 world world_init(struct blockhash* blocks);
 
 uint8_t world_getblock(world w, int x, int y);
-uint8_t world_getdata(world w, int x, int y);
-uint16_t world_getblockdata(world w, int x, int y);
+uint32_t world_getdata(world w, int x, int y);
+uint32_t world_getblockdata(world w, int x, int y);
 
 void world_setblock(world w, int x, int y, uint8_t v);
-void world_setdata(world w, int x, int y, uint8_t v);
-void world_setblockdata(world w, int x, int y, uint16_t v);
+void world_setdata(world w, int x, int y, uint32_t v);
+void world_setblockdata(world w, int x, int y, uint32_t v);
 
 void world_render_range(world w, int minx, int maxx, int miny, int maxy, float camx, float camy, struct blockhash* blocks, SDL_Renderer* renderer);
 void world_render(world w, float camx, float camy, struct blockhash* blocks, SDL_Renderer* renderer);
