@@ -91,8 +91,6 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
     x = px;
     y = py;
 
-    printf("%d %d\n", left, right);
-
     if (right) {
         if (world_getblock(&w, x, y) != shgeti(blocks, "game:grass")) {
             world_setblockdata(&w, x, y, shgeti(blocks, "game:grass"));
