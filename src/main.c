@@ -150,14 +150,12 @@ int main(int argc, char* argv[]) {
         double fps = 1 / delta;
 
         if (fps < 144) {
-            
-
             SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
             SDL_RenderClear(renderer);
 
             SDL_RenderCopy(renderer, background, NULL, NULL);
             
-            state_update(delta);
+            state_update(renderer, delta);
             state_draw(renderer);
             SDL_RenderPresent(renderer);
             

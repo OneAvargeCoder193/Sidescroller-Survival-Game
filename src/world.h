@@ -72,6 +72,9 @@ void world_genblock(world* w);
 void world_gendata(world* w);
 void world_fillliquids(world* w);
 
+void world_updatedata(world* w, int x, int y);
+void world_gendatarange(world* w, int minx, int miny, int maxx, int maxy);
+
 uint8_t world_getblock(world* w, int x, int y);
 uint32_t world_getdata(world* w, int x, int y);
 uint32_t world_getblockdata(world* w, int x, int y);

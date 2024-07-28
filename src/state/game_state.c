@@ -37,7 +37,7 @@ void game_state_handle_events(void) {
     
 }
 
-void game_state_update(float delta) {
+void game_state_update(SDL_Renderer* renderer, float delta) {
     const uint8_t* keys = SDL_GetKeyboardState(NULL);
 
     for (int i = 0; i < arrlen(entities); i++) {
@@ -72,6 +72,44 @@ void game_state_update(float delta) {
 
     playerx += moveX * delta;
     playery += moveY * delta;
+    
+    int width, height;
+    SDL_GetRendererOutputSize(renderer, &width, &height);
+
+    int x, y;
+    int state = SDL_GetMouseState(&x, &y);
+
+    int left = state & SDL_BUTTON(SDL_BUTTON_LEFT);
+    int right = state & SDL_BUTTON(SDL_BUTTON_RIGHT);
+
+    float px = x - width / 2;
+    float py = height - y - height / 2;
+    px /= 16;
+    py /= 16;
+    px += camx;
+    py += camy;
+    x = px;
+    y = py;
+
+    printf("%d %d\n", left, right);
+
+    if (right) {
+        if (world_getblock(&w, x, y) != shgeti(blocks, "game:grass")) {
+            world_setblockdata(&w, x, y, shgeti(blocks, "game:grass"));
+            world_gendatarange(&w, x - 1, y - 1, x + 2, y + 2);
+        }
+    } else if (left) {
+        if (world_getblock(&w, x, y) != shgeti(blocks, "game:air")) {
+            world_setblockdata(&w, x, y, shgeti(blocks, "game:air"));
+            world_gendatarange(&w, x - 1, y - 1, x + 2, y + 2);
+        }
+    }
+
+    // for (int x = 0; x < WORLD_WIDTH; x++) {
+    //     for (int y = 0; y < WORLD_HEIGHT; y++) {
+    //         world_updatedata(&w, x, y);
+    //     }
+    // }
 }
 
 void game_state_draw(SDL_Renderer* renderer) {

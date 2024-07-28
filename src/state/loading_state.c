@@ -16,7 +16,7 @@ void loading_state_handle_events(void) {
     
 }
 
-void loading_state_update(float delta) {
+void loading_state_update(SDL_Renderer* renderer, float delta) {
     if (w.generateState == genEmpty) {
         w = world_init(blocks);
     }

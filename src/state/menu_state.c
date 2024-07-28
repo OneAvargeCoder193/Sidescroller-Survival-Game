@@ -17,7 +17,7 @@ void menu_state_handle_events(void) {
     
 }
 
-void menu_state_update(float delta) {
+void menu_state_update(SDL_Renderer* renderer, float delta) {
 
 }
 

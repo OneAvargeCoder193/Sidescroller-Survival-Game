@@ -284,22 +284,8 @@ void world_fillliquids(world* w) {
     w->generateState = genData;
 }
 
-void world_gendata(world* w) {
-    int i = w->genIdx;
-
-    w->genIdx++;
-
-    if (i == WORLD_WIDTH * WORLD_HEIGHT - 1) {
-        w->finishedGenData = true;
-        w->genIdx = 0;
-        w->generateState = genDone;
-        return;
-    }
-
-    int x = i % WORLD_WIDTH;
-    int y = i / WORLD_WIDTH;
-
-    uint32_t data = world_getdata(w, x, y);
+void world_updatedata(world* w, int x, int y) {
+    uint32_t data = 0;
     int bl = world_getblock(w, x, y);
     block b = blocks[bl].value;
     blockshape shape = b.shape;
@@ -337,7 +323,35 @@ void world_gendata(world* w) {
             data = 15;
         }
     }
-    w->blocks[x][y] |= data << 8;
+    world_setdata(w, x, y, data);
+}
+
+void world_gendata(world* w) {
+    int i = w->genIdx;
+
+    w->genIdx++;
+
+    if (i == WORLD_WIDTH * WORLD_HEIGHT - 1) {
+        w->finishedGenData = true;
+        w->genIdx = 0;
+        w->generateState = genDone;
+        return;
+    }
+
+    int x = i % WORLD_WIDTH;
+    int y = i / WORLD_WIDTH;
+
+    world_updatedata(w, x, y);
+}
+
+void world_gendatarange(world* w, int minx, int miny, int maxx, int maxy) {
+    for (int y = miny; y < maxy; y++) {
+        for (int x = minx; x < maxx; x++) {
+            if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
+                continue;
+            world_updatedata(w, x, y);
+        }
+    }
 }
 
 uint8_t world_getblock(world* w, int x, int y) {

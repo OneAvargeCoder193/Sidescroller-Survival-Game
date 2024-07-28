@@ -13,7 +13,7 @@ extern state_type state;
 
 void state_init(void);
 void state_set(state_type new_state);
-void state_update(float delta);
+void state_update(SDL_Renderer* renderer, float delta);
 void state_draw(SDL_Renderer* renderer);
 
 #endif // STATE_H
