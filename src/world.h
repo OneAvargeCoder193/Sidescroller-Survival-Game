@@ -5,6 +5,8 @@
 #include <stdbool.h>
 #include <SDL2/SDL.h>
 
+#include "FastNoiseLite.h"
+
 #include "assets.h"
 #include "cJSON.h"
 
@@ -37,21 +39,48 @@ void registerBlock(const char* key, const cJSON* json, Assets *assets);
 void registerConnects(const char* key, const cJSON* json);
 void fixConnectConflict(const char* key);
 
+struct ffp {
+    int x; int y; int block;
+};
+
+enum worldstate {
+    genEmpty,
+    genBlocks,
+    genLiquids,
+    genData,
+    genDone
+};
+
 typedef struct world {
     uint32_t blocks[WORLD_WIDTH][WORLD_HEIGHT];
+    float heightMap[WORLD_WIDTH];
+    int genIdx;
+    bool finishedGen;
+    bool finishedGenData;
+    struct ffp* fillWaterPos;
+    struct ffp* waterpos;
+    fnl_state n;
+    fnl_state rock;
+    enum worldstate generateState;
 } world;
+
+extern world w;
 
 world world_init(struct blockhash* blocks);
 
-uint8_t world_getblock(world w, int x, int y);
-uint32_t world_getdata(world w, int x, int y);
-uint32_t world_getblockdata(world w, int x, int y);
+void world_genblock(world* w);
+void world_gendata(world* w);
+void world_fillliquids(world* w);
 
-void world_setblock(world w, int x, int y, uint8_t v);
-void world_setdata(world w, int x, int y, uint32_t v);
-void world_setblockdata(world w, int x, int y, uint32_t v);
+uint8_t world_getblock(world* w, int x, int y);
+uint32_t world_getdata(world* w, int x, int y);
+uint32_t world_getblockdata(world* w, int x, int y);
 
-void world_render_range(world w, int minx, int maxx, int miny, int maxy, float camx, float camy, struct blockhash* blocks, SDL_Renderer* renderer);
-void world_render(world w, float camx, float camy, struct blockhash* blocks, SDL_Renderer* renderer);
+void world_setblock(world *w, int x, int y, uint8_t v);
+void world_setdata(world *w, int x, int y, uint32_t v);
+void world_setblockdata(world *w, int x, int y, uint32_t v);
+
+void world_render_range(world* w, int minx, int maxx, int miny, int maxy, float camx, float camy, struct blockhash* blocks, SDL_Renderer* renderer);
+void world_render(world* w, float camx, float camy, struct blockhash* blocks, SDL_Renderer* renderer);
 
 #endif

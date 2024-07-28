@@ -6,15 +6,53 @@
 #include "cJSON.h"
 #include "assets.h"
 
+typedef struct animation {
+    int start;
+    int end;
+    float speed;
+} animation;
+
+typedef enum comparison {
+    greater,
+    less
+} comparison;
+
+typedef struct trigger {
+    char* type;
+    comparison comparison;
+    float value;
+} trigger;
+
+typedef struct action {
+    char *animation;
+    char *initial_state;
+    char *final_state;
+} action;
+
+typedef struct component {
+    trigger trigger;
+    action actions;
+} component;
+
+struct animhash {
+    char* key;
+    animation value;
+};
+
 typedef struct entitytype {
     SDL_Texture** textures;
+    struct animhash* animations;
+    component* components;
     cJSON* json;
 } entitytype;
 
 typedef struct entity {
     int type;
-    cJSON* vars;
-    cJSON* current;
+    float animframe;
+
+    int* triggercomponents;
+
+    int side;
     float timer;
     float x;
     float y;

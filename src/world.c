@@ -2,12 +2,11 @@
 
 #include "utils.h"
 
-#define FNL_IMPL
-#include "FastNoiseLite.h"
-
 #include "stb_ds.h"
 
 struct blockhash* blocks = NULL;
+
+world w = {NULL, NULL, 0, 0, 0, NULL, NULL, {0}, {0}, genEmpty};
 
 block create_block(SDL_Texture* tex, SDL_Texture* foliage, bool transparent, blockshape shape) {
     block res;
@@ -93,10 +92,6 @@ void fixConnectConflict(const char* key) {
     }
 }
 
-struct ffp {
-    int x; int y; int block;
-};
-
 int connectBlock(int a, int b) {
     return blocks[a].value.connects[b];
 }
@@ -110,7 +105,7 @@ bool contains(struct ffp* p, int x, int y, int block) {
     return 0;
 }
 
-struct ffp* floodfill(world w, int x, int y, int block) {
+struct ffp* floodfill(world* w, int x, int y, int block) {
     struct ffp* points = NULL;
     struct ffp* allpoints = NULL;
 
@@ -143,95 +138,114 @@ struct ffp* floodfill(world w, int x, int y, int block) {
 
 world world_init(struct blockhash* blocks) {
     world w = {0};
+    w.genIdx = 0;
+    w.finishedGen = false;
+    w.finishedGenData = false;
+    w.fillWaterPos = NULL;
+    w.waterpos = NULL;
+    w.generateState = genBlocks;
 
-    fnl_state n = fnlCreateState();
-    n.fractal_type = FNL_FRACTAL_FBM;
-    n.octaves = 16;
+    w.n = fnlCreateState();
+    w.n.fractal_type = FNL_FRACTAL_FBM;
+    w.n.octaves = 16;
     
-    fnl_state rock = fnlCreateState();
-    rock.noise_type = FNL_NOISE_CELLULAR;
-    rock.cellular_distance_func = FNL_CELLULAR_DISTANCE_EUCLIDEAN;
+    w.rock = fnlCreateState();
+    w.rock.noise_type = FNL_NOISE_CELLULAR;
+    w.rock.cellular_distance_func = FNL_CELLULAR_DISTANCE_EUCLIDEAN;
 
-    struct ffp* fillWaterPos = NULL;
-    struct ffp* waterpos = NULL;
-
-    float h[WORLD_WIDTH];
     for (int x = 0; x < WORLD_WIDTH; x++) {
-        h[x] = fnlGetNoise2D(&n, x / 2.0, 0) * 30 + WORLD_HEIGHT / 2;
+        w.heightMap[x] = fnlGetNoise2D(&w.n, x / 2.0, 0) * 30 + WORLD_HEIGHT / 2;
     }
 
-    for (int x = 0; x < WORLD_WIDTH; x++) {
-        for (int y = 0; y < WORLD_HEIGHT; y++) {
-            float height = h[x];
-            const char* block = "game:air";
-            if (y < height) {
-                if (y >= WORLD_HEIGHT / 2) {
-                    block = "game:grass";
-                } else {
-                    block = "game:dirt";
-                }
-            }
-            if (y < height - 3) {
+    return w;
+}
+
+void world_genblock(world* w) {
+    int i = w->genIdx;
+
+    w->genIdx++;
+
+    if (i == WORLD_WIDTH * WORLD_HEIGHT - 1) {
+        w->finishedGen = true;
+        w->genIdx = 0;
+        w->generateState = genLiquids;
+        return;
+    }
+
+    int x = i % WORLD_WIDTH;
+    int y = i / WORLD_WIDTH;
+
+    if (i < WORLD_WIDTH * WORLD_HEIGHT) {
+        float height = w->heightMap[x];
+        const char* block = "game:air";
+        if (y < height) {
+            if (y >= WORLD_HEIGHT / 2) {
+                block = "game:grass";
+            } else {
                 block = "game:dirt";
             }
-            if (y < height - 50) {
+        }
+        if (y < height - 3) {
+            block = "game:dirt";
+        }
+        if (y < height - 50) {
+            block = "game:stone";
+        }
+        if (strcmp(block, "game:air") == 0 && y == WORLD_HEIGHT / 2) {
+            arrput(w->fillWaterPos, ((struct ffp){x, y, shgeti(blocks, "game:water")}));
+            arrput(w->waterpos, ((struct ffp){x, y, shgeti(blocks, "game:water")}));
+        }
+        if (fabsf(fnlGetNoise2D(&w->n, x, y)) < 0.2 && fabsf(fnlGetNoise2D(&w->n, x + 5399, y + 3494)) < 0.2) {
+            block = "game:air";
+        }
+        if (strcmp(block, "game:dirt") == 0) {
+            int nx = x + fnlGetNoise2D(&w->n, x - 2283, y - 9872) * 50;
+            int ny = y + fnlGetNoise2D(&w->n, x + 3939, y + 2939) * 50;
+            if (fnlGetNoise2D(&w->rock, nx, ny) < -0.5 && y < height - 7) {
                 block = "game:stone";
             }
-            if (strcmp(block, "game:air") == 0 && y == WORLD_HEIGHT / 2) {
-                arrput(fillWaterPos, ((struct ffp){x, y, shgeti(blocks, "game:water")}));
-                arrput(waterpos, ((struct ffp){x, y, shgeti(blocks, "game:water")}));
-            }
-            if (fabsf(fnlGetNoise2D(&n, x, y)) < 0.2 && fabsf(fnlGetNoise2D(&n, x + 5399, y + 3494)) < 0.2) {
-                block = "game:air";
-            }
-            if (strcmp(block, "game:dirt") == 0) {
-                int nx = x + fnlGetNoise2D(&n, x - 2283, y - 9872) * 50;
-                int ny = y + fnlGetNoise2D(&n, x + 3939, y + 2939) * 50;
-                if (fnlGetNoise2D(&rock, nx, ny) < -0.5 && y < height - 7) {
-                    block = "game:stone";
-                }
-            }
-
-            if (strcmp(block, "game:stone") == 0) {
-                int nx = x + fnlGetNoise2D(&n, x - 2283, y - 9872) * 10;
-                int ny = y + fnlGetNoise2D(&n, x + 3939, y + 2939) * 10;
-                if (fnlGetNoise2D(&rock, nx - 2939, ny + 9593) < -0.9) {
-                    block = "game:copper_ore";
-                }
-                if (fnlGetNoise2D(&rock, nx + 39032, ny - 2939) < -0.9) {
-                    block = "game:tin_ore";
-                }
-            }
-            w.blocks[x][y] = shgeti(blocks, block);
         }
-    }
 
-    while (arrlen(fillWaterPos) != 0) {
-        struct ffp p = arrpop(fillWaterPos);
+        if (strcmp(block, "game:stone") == 0) {
+            int nx = x + fnlGetNoise2D(&w->n, x - 2283, y - 9872) * 10;
+            int ny = y + fnlGetNoise2D(&w->n, x + 3939, y + 2939) * 10;
+            if (fnlGetNoise2D(&w->rock, nx - 2939, ny + 9593) < -0.9) {
+                block = "game:copper_ore";
+            }
+            if (fnlGetNoise2D(&w->rock, nx + 39032, ny - 2939) < -0.9) {
+                block = "game:tin_ore";
+            }
+        }
+        w->blocks[x][y] = shgeti(blocks, block);
+    }
+}
+
+void world_fillliquids(world* w) {
+    while (arrlen(w->fillWaterPos) != 0) {
+        struct ffp p = arrpop(w->fillWaterPos);
         int x = p.x;
         int y = p.y;
 
-        if (world_getblock(w, x + 1, y) == 0 && !contains(waterpos, x + 1, y, p.block)) {
-            arrput(fillWaterPos, ((struct ffp){x + 1, y, p.block}));
-            arrput(waterpos, ((struct ffp){x + 1, y, p.block}));
+        if (world_getblock(w, x + 1, y) == 0 && !contains(w->waterpos, x + 1, y, p.block)) {
+            arrput(w->fillWaterPos, ((struct ffp){x + 1, y, p.block}));
+            arrput(w->waterpos, ((struct ffp){x + 1, y, p.block}));
         }
 
-        if (world_getblock(w, x - 1, y) == 0 && !contains(waterpos, x - 1, y, p.block)) {
-            arrput(fillWaterPos, ((struct ffp){x - 1, y, p.block}));
-            arrput(waterpos, ((struct ffp){x - 1, y, p.block}));
+        if (world_getblock(w, x - 1, y) == 0 && !contains(w->waterpos, x - 1, y, p.block)) {
+            arrput(w->fillWaterPos, ((struct ffp){x - 1, y, p.block}));
+            arrput(w->waterpos, ((struct ffp){x - 1, y, p.block}));
         }
-
-        if (world_getblock(w, x, y - 1) == 0 && !contains(waterpos, x, y - 1, p.block)) {
-            arrput(fillWaterPos, ((struct ffp){x, y - 1, p.block}));
-            arrput(waterpos, ((struct ffp){x, y - 1, p.block}));
+        if (world_getblock(w, x, y - 1) == 0 && !contains(w->waterpos, x, y - 1, p.block)) {
+            arrput(w->fillWaterPos, ((struct ffp){x, y - 1, p.block}));
+            arrput(w->waterpos, ((struct ffp){x, y - 1, p.block}));
         }
     }
     
-    arrfree(fillWaterPos);
+    arrfree(w->fillWaterPos);
 
     for (int x = 0; x < WORLD_WIDTH; x++) {
         for (int y = 0; y < WORLD_HEIGHT / 2; y++) {
-            if (w.blocks[x][y] == 0 && y < h[x] && !contains(waterpos, x, y, shgeti(blocks, "game:water"))) {
+            if (w->blocks[x][y] == 0 && y < w->heightMap[x] && !contains(w->waterpos, x, y, shgeti(blocks, "game:water"))) {
                 float chance = (WORLD_HEIGHT - y - 1) / (float)WORLD_HEIGHT;
                 chance *= 0.02;
                 if ((murmur_hash_combine(x, y) & 0xff) / 255.0 < chance) {
@@ -249,7 +263,7 @@ world world_init(struct blockhash* blocks) {
 
                     struct ffp* bs = floodfill(w, minx, miny + 4, shgeti(blocks, "game:lava"));
                     for (int i = 0; i < arrlen(bs); i++) {
-                        w.blocks[bs[i].x][bs[i].y] = bs[i].block;
+                        w->blocks[bs[i].x][bs[i].y] = bs[i].block;
                     }
                     arrfree(bs);
                 }
@@ -257,98 +271,109 @@ world world_init(struct blockhash* blocks) {
         }
     }
 
-    for (int i = 0; i < arrlen(waterpos); i++) {
-        if (world_getblock(w, waterpos[i].x, waterpos[i].y) == 0) {
-            w.blocks[waterpos[i].x][waterpos[i].y] = waterpos[i].block;
-            if (world_getblock(w, waterpos[i].x, waterpos[i].y - 1) == shgeti(blocks, "game:lava")) {
-                w.blocks[waterpos[i].x][waterpos[i].y] = shgeti(blocks, "game:obsidian");
+    for (int i = 0; i < arrlen(w->waterpos); i++) {
+        if (world_getblock(w, w->waterpos[i].x, w->waterpos[i].y) == 0) {
+            w->blocks[w->waterpos[i].x][w->waterpos[i].y] = w->waterpos[i].block;
+            if (world_getblock(w, w->waterpos[i].x, w->waterpos[i].y - 1) == shgeti(blocks, "game:lava")) {
+                w->blocks[w->waterpos[i].x][w->waterpos[i].y] = shgeti(blocks, "game:obsidian");
             }
         }
     }
-    arrfree(waterpos);
-
-    for (int x = 0; x < WORLD_WIDTH; x++) {
-        for (int y = 0; y < WORLD_HEIGHT; y++) {
-            uint32_t data = world_getdata(w, x, y);
-            int bl = world_getblock(w, x, y);
-            block b = blocks[bl].value;
-            blockshape shape = b.shape;
-            if (shape == edges) {
-                int top = world_getblock(w, x, y + 1);
-                int bottom = world_getblock(w, x, y - 1);
-                int left = world_getblock(w, x - 1, y);
-                int right = world_getblock(w, x + 1, y);
-                int topleft = world_getblock(w, x - 1, y + 1);
-                int topright = world_getblock(w, x + 1, y + 1);
-                int bottomleft = world_getblock(w, x - 1, y - 1);
-                int bottomright = world_getblock(w, x + 1, y - 1);
-                data |= (!connectBlock(bl, top)) << 0;
-                data |= (!connectBlock(bl, bottom)) << 1;
-                data |= (!connectBlock(bl, left)) << 2;
-                data |= (!connectBlock(bl, right)) << 3;
-                data |= (!connectBlock(bl, topleft)) << 4;
-                data |= (!connectBlock(bl, topright)) << 5;
-                data |= (!connectBlock(bl, bottomleft)) << 6;
-                data |= (!connectBlock(bl, bottomright)) << 7;
-                data |= (blocks[top].value.shape != edges) << 8;
-                data |= (blocks[bottom].value.shape != edges) << 9;
-                data |= (blocks[left].value.shape != edges) << 10;
-                data |= (blocks[right].value.shape != edges) << 11;
-                data |= (blocks[topleft].value.shape != edges) << 12;
-                data |= (blocks[topright].value.shape != edges) << 13;
-                data |= (blocks[bottomleft].value.shape != edges) << 14;
-                data |= (blocks[bottomright].value.shape != edges) << 15;
-            } else if (shape == liquid) {
-                if (blocks[world_getblock(w, x, y + 1)].value.shape != liquid) {
-                    data = 4;
-                } else if (blocks[world_getblock(w, x, y + 2)].value.shape != liquid) {
-                    data = 12;
-                } else {
-                    data = 15;
-                }
-            }
-            w.blocks[x][y] |= data << 8;
-        }
-    }
-
-    return w;
+    arrfree(w->waterpos);
+    
+    w->generateState = genData;
 }
 
+void world_gendata(world* w) {
+    int i = w->genIdx;
 
-uint8_t world_getblock(world w, int x, int y) {
+    w->genIdx++;
+
+    if (i == WORLD_WIDTH * WORLD_HEIGHT - 1) {
+        w->finishedGenData = true;
+        w->genIdx = 0;
+        w->generateState = genDone;
+        return;
+    }
+
+    int x = i % WORLD_WIDTH;
+    int y = i / WORLD_WIDTH;
+
+    uint32_t data = world_getdata(w, x, y);
+    int bl = world_getblock(w, x, y);
+    block b = blocks[bl].value;
+    blockshape shape = b.shape;
+    if (shape == edges) {
+        int top = world_getblock(w, x, y + 1);
+        int bottom = world_getblock(w, x, y - 1);
+        int left = world_getblock(w, x - 1, y);
+        int right = world_getblock(w, x + 1, y);
+        int topleft = world_getblock(w, x - 1, y + 1);
+        int topright = world_getblock(w, x + 1, y + 1);
+        int bottomleft = world_getblock(w, x - 1, y - 1);
+        int bottomright = world_getblock(w, x + 1, y - 1);
+        data |= (!connectBlock(bl, top)) << 0;
+        data |= (!connectBlock(bl, bottom)) << 1;
+        data |= (!connectBlock(bl, left)) << 2;
+        data |= (!connectBlock(bl, right)) << 3;
+        data |= (!connectBlock(bl, topleft)) << 4;
+        data |= (!connectBlock(bl, topright)) << 5;
+        data |= (!connectBlock(bl, bottomleft)) << 6;
+        data |= (!connectBlock(bl, bottomright)) << 7;
+        data |= (blocks[top].value.shape != edges) << 8;
+        data |= (blocks[bottom].value.shape != edges) << 9;
+        data |= (blocks[left].value.shape != edges) << 10;
+        data |= (blocks[right].value.shape != edges) << 11;
+        data |= (blocks[topleft].value.shape != edges) << 12;
+        data |= (blocks[topright].value.shape != edges) << 13;
+        data |= (blocks[bottomleft].value.shape != edges) << 14;
+        data |= (blocks[bottomright].value.shape != edges) << 15;
+    } else if (shape == liquid) {
+        if (blocks[world_getblock(w, x, y + 1)].value.shape != liquid) {
+            data = 4;
+        } else if (blocks[world_getblock(w, x, y + 2)].value.shape != liquid) {
+            data = 12;
+        } else {
+            data = 15;
+        }
+    }
+    w->blocks[x][y] |= data << 8;
+}
+
+uint8_t world_getblock(world* w, int x, int y) {
     if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
         return 1;
-    return w.blocks[x][y] & 0xff;
+    return w->blocks[x][y] & 0xff;
 }
 
-uint32_t world_getdata(world w, int x, int y) {
+uint32_t world_getdata(world* w, int x, int y) {
     if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
         return 0;
-    return w.blocks[x][y] >> 8;
+    return w->blocks[x][y] >> 8;
 }
 
-uint32_t world_getblockdata(world w, int x, int y) {
+uint32_t world_getblockdata(world* w, int x, int y) {
     if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
         return 1;
-    return w.blocks[x][y];
+    return w->blocks[x][y];
 }
 
-void world_setblock(world w, int x, int y, uint8_t v) {
+void world_setblock(world* w, int x, int y, uint8_t v) {
     if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
         return;
-    w.blocks[x][y] = w.blocks[x][y] & ~0xff | v;
+    w->blocks[x][y] = w->blocks[x][y] & ~0xff | v;
 }
 
-void world_setdata(world w, int x, int y, uint32_t v) {
+void world_setdata(world* w, int x, int y, uint32_t v) {
     if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
         return;
-    w.blocks[x][y] = w.blocks[x][y] & 0xff | (v << 8);
+    w->blocks[x][y] = w->blocks[x][y] & 0xff | (v << 8);
 }
 
-void world_setblockdata(world w, int x, int y, uint32_t v) {
+void world_setblockdata(world* w, int x, int y, uint32_t v) {
     if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
         return;
-    w.blocks[x][y] = v;
+    w->blocks[x][y] = v;
 }
 
 void drawBlock(SDL_Renderer* renderer, struct blockhash* blocks, int b, int x, int y, float camx, float camy) {
@@ -677,13 +702,13 @@ void drawBlockEdgesFoliage(SDL_Renderer* renderer, struct blockhash* blocks, int
     }
 }
 
-void world_render_range(world w, int minx, int maxx, int miny, int maxy, float camx, float camy, struct blockhash* blocks, SDL_Renderer* renderer) {
+void world_render_range(world* w, int minx, int maxx, int miny, int maxy, float camx, float camy, struct blockhash* blocks, SDL_Renderer* renderer) {
     int width, height;
     SDL_GetRendererOutputSize(renderer, &width, &height);
 
     for (int x = minx; x < maxx; x++) {
         for (int y = miny; y < maxy; y++) {
-            int b = w.blocks[x][y];
+            int b = w->blocks[x][y];
             int block = b & 0xff;
             if (block == 0)
                 continue;
@@ -698,7 +723,7 @@ void world_render_range(world w, int minx, int maxx, int miny, int maxy, float c
 
     for (int x = minx; x < maxx; x++) {
         for (int y = miny; y < maxy; y++) {
-            int b = w.blocks[x][y];
+            int b = w->blocks[x][y];
             int block = b & 0xff;
             if (blocks[block].value.foliage == NULL)
                 continue;
@@ -710,7 +735,7 @@ void world_render_range(world w, int minx, int maxx, int miny, int maxy, float c
     }
 }
 
-void world_render(world w, float camx, float camy, struct blockhash* blocks, SDL_Renderer* renderer) {
+void world_render(world* w, float camx, float camy, struct blockhash* blocks, SDL_Renderer* renderer) {
     int width, height;
     SDL_GetRendererOutputSize(renderer, &width, &height);
     

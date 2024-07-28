@@ -3,8 +3,11 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#define FNL_IMPL
+
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
+#include <SDL2/SDL_ttf.h>
 
 #define STB_DS_IMPLEMENTATION
 #include "stb_ds.h"
@@ -14,65 +17,13 @@
 #include "assets.h"
 #include "entity.h"
 
-world w;
+#include "state.h"
+
 SDL_Renderer *renderer;
-SDL_Texture* playerParts[6];
-SDL_Texture* hat;
-
-Assets assets;
-
-float camx = 0;
-float camy = 0;
-
-float playerx = WORLD_WIDTH / 2;
-float playery = WORLD_HEIGHT / 2;
-int playerside = 0;
-float playerframe = 0;
-typedef enum entitystate {
-    idle,
-    walking
-} entitystate;
-entitystate playerstate = idle;
 
 void render() {
 
-    int width, height;
-    SDL_GetRendererOutputSize(renderer, &width, &height);
     
-    float renplayerx = floorf(playerx * 8) / 8;
-    float renplayery = floorf(playery * 8) / 8;
-    
-    camx = fmaxf(renplayerx, (float)width / 32);
-    camy = fmaxf(renplayery, (float)height / 32);
-    
-    for (int i = 0; i < arrlen(entities); i++) {
-        renderEntity(renderer, entities[i], camx, camy);
-    }
-
-    int animId = (int)playerframe;
-    int side = playerside;
-
-    SDL_Rect playerSrc;
-    playerSrc.x = animId * 32;
-    playerSrc.y = side * 32;
-    playerSrc.w = 32;
-    playerSrc.h = 32;
-
-    SDL_Rect playerDst;
-    playerDst.x = (renplayerx - camx) * 16 + width / 2.0 - 32;
-    playerDst.y = height - (renplayery - camy) * 16 - height / 2.0 - 32;
-    playerDst.w = 64;
-    playerDst.h = 64;
-    
-    SDL_RenderCopy(renderer, playerParts[0], &playerSrc, &playerDst);
-    SDL_RenderCopy(renderer, playerParts[1], &playerSrc, &playerDst);
-    SDL_RenderCopy(renderer, playerParts[2], &playerSrc, &playerDst);
-    SDL_RenderCopy(renderer, playerParts[3], &playerSrc, &playerDst);
-    SDL_RenderCopy(renderer, playerParts[4], &playerSrc, &playerDst);
-    SDL_RenderCopy(renderer, hat, &playerSrc, &playerDst);
-    SDL_RenderCopy(renderer, playerParts[5], &playerSrc, &playerDst);
-
-    world_render(w, camx, camy, blocks, renderer);
 }
 
 SDL_Texture* loadTexture(const char* path) {
@@ -83,6 +34,12 @@ int main(int argc, char* argv[]) {
     if(SDL_Init(SDL_INIT_VIDEO) < 0) {
         printf("Failed to initialize the SDL2 library\n");
         printf("SDL2 Error: %d\n", SDL_GetError());
+        return -1;
+    }
+
+    if (TTF_Init() < 0) {
+        printf("Failed to initialize the TTF library\n");
+        printf("TTF Error: %d\n", TTF_GetError());
         return -1;
     }
 
@@ -108,6 +65,15 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
+    font = TTF_OpenFont("assets/font/Font.ttf", 24);
+    if (!font) {
+        printf("Failed to load font\n");
+        printf("TTF Error: %d\n", TTF_GetError());
+        return -1;
+    }
+    
+    state_init();
+
     init_assets(&assets, renderer);
 
     SDL_Texture* background = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STATIC, 1, 2);
@@ -129,18 +95,8 @@ int main(int argc, char* argv[]) {
     // Set the texture filtering mode to linear interpolation
     SDL_SetTextureBlendMode(background, SDL_BLENDMODE_BLEND);
     SDL_SetTextureScaleMode(background, SDL_ScaleModeLinear);
-    
-    playerParts[0] = shget(assets.entityTextures, "game:player_backarm");
-    playerParts[1] = shget(assets.entityTextures, "game:player_backleg");
-    playerParts[2] = shget(assets.entityTextures, "game:player_body");
-    playerParts[3] = shget(assets.entityTextures, "game:player_frontleg");
-    playerParts[4] = shget(assets.entityTextures, "game:player_head");
-    playerParts[5] = shget(assets.entityTextures, "game:player_frontarm");
-    hat = shget(assets.entityTextures, "game:classic_hat");
 
-    w = world_init(blocks);
-
-    entity e = createEntity("game:mossman", WORLD_WIDTH / 2, WORLD_HEIGHT / 2, 0, 0);
+    entity e = createEntity("game:mossman", WORLD_WIDTH / 2 + 15, WORLD_HEIGHT / 2, 0, 0);
     arrput(entities, e);
 
     uint64_t start = SDL_GetPerformanceCounter();
@@ -151,7 +107,7 @@ int main(int argc, char* argv[]) {
     while(keep_window_open)
     {
         SDL_Event e;
-        while(SDL_PollEvent(&e) > 0)
+        while (SDL_PollEvent(&e) > 0)
         {
             switch(e.type)
             {
@@ -171,7 +127,7 @@ int main(int argc, char* argv[]) {
                         SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormat(0, WORLD_WIDTH * 16, WORLD_HEIGHT * 16, 32, SDL_PIXELFORMAT_RGBA32);
                         
                         SDL_SetRenderTarget(renderer, sshot);
-                        world_render_range(w, 0, WORLD_WIDTH, 0, WORLD_HEIGHT, WORLD_WIDTH / 2, WORLD_HEIGHT / 2, blocks, renderer);
+                        world_render_range(&w, 0, WORLD_WIDTH, 0, WORLD_HEIGHT, WORLD_WIDTH / 2, WORLD_HEIGHT / 2, blocks, renderer);
                         SDL_RenderReadPixels(renderer, NULL, SDL_PIXELFORMAT_RGBA32, surface->pixels, surface->pitch);
                         SDL_SetRenderTarget(renderer, NULL);
                         
@@ -179,6 +135,11 @@ int main(int argc, char* argv[]) {
 
                         SDL_FreeSurface(surface);
                         SDL_DestroyTexture(sshot);
+                    }
+                    break;
+                case SDL_MOUSEBUTTONUP:
+                    if (e.button.button == SDL_BUTTON_LEFT) {
+                        mouseLeftReleased = 1;
                     }
                     break;
             }
@@ -189,43 +150,15 @@ int main(int argc, char* argv[]) {
         double fps = 1 / delta;
 
         if (fps < 144) {
-            const uint8_t* keys = SDL_GetKeyboardState(NULL);
-
-            float moveX = (keys[SDL_SCANCODE_D] - keys[SDL_SCANCODE_A]) * 8;
-            float moveY = (keys[SDL_SCANCODE_W] - keys[SDL_SCANCODE_S]) * 8;
-
-            if (playerstate == walking) {
-                playerframe += fabsf(moveX) * 8 * delta;
-                if (playerframe >= 21) {
-                    playerframe -= 12;
-                }
-            }
-
-            if (moveX < 0) {
-                playerside = 0;
-                if (playerstate != walking)
-                    playerframe = 9;
-                playerstate = walking;
-            } else if (moveX > 0) {
-                playerside = 1;
-                if (playerstate != walking)
-                    playerframe = 9;
-                playerstate = walking;
-            } else if (moveX == 0) {
-                if (playerstate != idle)
-                    playerframe = 0;
-                playerstate = idle;
-            }
-
-            playerx += moveX * delta;
-            playery += moveY * delta;
+            
 
             SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
             SDL_RenderClear(renderer);
 
             SDL_RenderCopy(renderer, background, NULL, NULL);
-
-            render();
+            
+            state_update(delta);
+            state_draw(renderer);
             SDL_RenderPresent(renderer);
             
             char title[64];
@@ -233,6 +166,9 @@ int main(int argc, char* argv[]) {
             SDL_SetWindowTitle(window, title);
             
             start = next;
+            
+            if (mouseLeftReleased)
+                mouseLeftReleased = 0;
         }
     }
 
@@ -245,6 +181,18 @@ int main(int argc, char* argv[]) {
     shfree(blocks);
     SDL_DestroyTexture(background);
     SDL_DestroyRenderer(renderer);
+
+    TTF_CloseFont(font);
+
+    for (int i = 0; i < arrlen(entities); i++) {
+        destroyEntity(entities[i]);
+    }
+    arrfree(entities);
+
+    for (int i = 0; i < shlen(entitytypes); i++) {
+        destroyEntityType(entitytypes[i].value);
+    }
+    shfree(entitytypes);
 
     free_assets(&assets);
 

@@ -9,6 +9,8 @@
 #include <string.h>
 #include <stdlib.h>
 
+Assets assets;
+
 SDL_Texture* load_texture(SDL_Renderer *renderer, const char *filepath) {
     SDL_Texture *texture = IMG_LoadTexture(renderer, filepath);
     if (!texture) {

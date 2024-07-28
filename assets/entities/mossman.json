@@ -4,118 +4,49 @@
         "hidden",
         "shown"
     ],
-    "vars": {
-        "state": "hidden",
-        "animframe": 0,
-        "side": 0
-    },
-    "actions": [{
-        "type": "if",
-        "condition": {
-            "type": "==",
-            "a": {
-                "type": "var",
-                "value": "state"
-            },
-            "b": {
-                "type": "string",
-                "value": "hidden"
-            }
+    "animations": {
+        "show": {
+            "start": 0,
+            "end": 3,
+            "speed": 0.1
         },
-        "then": [{
-            "type": "wait until",
-            "condition": {
-                "type": "<",
-                "a": {
-                    "type": "distance to player"
-                },
-                "b": {
-                    "type": "number",
-                    "value": "10"
-                }
-            }
-        }, {
-            "type": "repeat",
-            "amount": {
-                "type": "number",
-                "value": 4
-            },
-            "events": [{
-                "type": "wait",
-                "time": {
-                    "type": "number",
-                    "value": 0.1
-                }
-            }, {
-                "type": "+=",
-                "var": "animframe",
-                "value": {
-                    "type": "number",
-                    "value": 1
-                }
-            }]
-        }, {
-            "type": "=",
-            "var": "state",
-            "value": {
-                "type": "string",
-                "value": "shown"
-            }
-        }],
-        "else": [{
-            "type": "if",
-            "condition": {
-                "type": "==",
-                "a": {
-                    "type": "var",
-                    "value": "state"
-                },
-                "b": {
-                    "type": "string",
-                    "value": "shown"
-                }
-            },
-            "then": [{
-                "type": "if",
-                "condition": {
-                    "type": ">",
-                    "a": {
-                        "type": "distance to player"
-                    },
-                    "b": {
-                        "type": "number",
-                        "value": 15
-                    }
-                },
-                "then": [{
-                    "type": "repeat",
-                    "amount": {
-                        "type": "number",
-                        "value": 4
-                    },
-                    "events": [{
-                        "type": "wait",
-                        "time": {
-                            "type": "number",
-                            "value": 0.1
-                        }
-                    }, {
-                        "type": "-=",
-                        "var": "animframe",
-                        "value": {
-                            "type": "number",
-                            "value": 1
-                        }
-                    }]
-                }, {
-                    "type": "=",
-                    "var": "state",
-                    "value": {
-                        "type": "string",
-                        "value": "hidden"
-                    }
-                }]
-            }]
-        }]
+        "hide": {
+            "start": 4,
+            "end": 0,
+            "speed": 0.1
+        },
+        "mouthopen": {
+            "start": 4,
+            "end": 6,
+            "speed": 0.1
+        },
+        "mouthclose": {
+            "start": 6,
+            "end": 4,
+            "speed": 0.1
+        }
+    },
+    "components": [{
+        "trigger": {
+            "type": "distance",
+            "comparison": "less",
+            "value": 10
+        },
+        "actions": {
+            "animation": "show",
+            "initial_state": "hidden",
+            "final_state": "shown"
+        }
+    }, {
+        "trigger": {
+            "type": "distance",
+            "comparison": "greater",
+            "value": 15
+        },
+        "actions": {
+            "animation": "hide",
+            "initial_state": "shown",
+            "final_state": "hidden"
+        }
     }]
 }

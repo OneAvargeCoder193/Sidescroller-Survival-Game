@@ -31,6 +31,8 @@ typedef struct {
     SDL_Renderer *renderer; // SDL renderer for creating textures
 } Assets;
 
+extern Assets assets;
+
 SDL_Texture* load_texture(SDL_Renderer *renderer, const char *filepath);
 void load_assets_from_folder(Assets *assets, const char *folder_path, const char *prefix);
 void load_all_assets(Assets *assets);
