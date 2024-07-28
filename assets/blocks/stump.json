@@ -1,5 +1,4 @@
 {
-    "shape": "edges",
-    "texture": "game:tree_stump",
-    "connects": ["game:dirt", "game:stone"]
+    "shape": "solid",
+    "texture": "game:tree_stump"
 }
