@@ -1,5 +1,4 @@
 {
     "shape": "edges",
-    "texture": "game:wood",
-    "connects": ["game:copper_ore", "game:tin_ore"]
+    "texture": "game:wood"
 }

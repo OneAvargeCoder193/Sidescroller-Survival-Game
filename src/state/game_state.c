@@ -92,8 +92,8 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
     y = py;
 
     if (right) {
-        if (world_getblock(&w, x, y) != shgeti(blocks, "game:grass")) {
-            world_setblockdata(&w, x, y, shgeti(blocks, "game:grass"));
+        if (world_getblock(&w, x, y) != shgeti(blocks, "game:wood")) {
+            world_setblockdata(&w, x, y, shgeti(blocks, "game:wood"));
             world_gendatarange(&w, x - 1, y - 1, x + 2, y + 2);
         }
     } else if (left) {
@@ -102,12 +102,6 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
             world_gendatarange(&w, x - 1, y - 1, x + 2, y + 2);
         }
     }
-
-    // for (int x = 0; x < WORLD_WIDTH; x++) {
-    //     for (int y = 0; y < WORLD_HEIGHT; y++) {
-    //         world_updatedata(&w, x, y);
-    //     }
-    // }
 }
 
 void game_state_draw(SDL_Renderer* renderer) {

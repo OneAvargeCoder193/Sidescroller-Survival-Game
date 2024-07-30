@@ -19,11 +19,13 @@ block create_block(SDL_Texture* tex, SDL_Texture* foliage, bool transparent, blo
 
 blockshape string_to_blockshape(const char* str) {
     if (strcmp(str, "solid") == 0) {
-        return solid;
+        return shape_solid;
     } else if (strcmp(str, "edges") == 0) {
-        return edges;
+        return shape_edges;
     } else if (strcmp(str, "liquid") == 0) {
-        return liquid;
+        return shape_liquid;
+    } else if (strcmp(str, "log") == 0) {
+        return shape_log;
     } else {
         fprintf(stderr, "Invalid blockshape: %s\n", str);
         return -1; // or handle error appropriately
@@ -44,7 +46,7 @@ void registerBlock(const char* key, const cJSON* json, Assets *assets) {
     if (foliageJson)
         foliage = shget(assets->blockTextures, foliageJson->valuestring);
     
-    blockshape shape = solid;
+    blockshape shape = shape_solid;
     if (shapeJson)
         shape = string_to_blockshape(shapeJson->valuestring);
     
@@ -83,10 +85,10 @@ void registerConnects(const char* key, const cJSON* json) {
 }
 
 void fixConnectConflict(const char* key) {
-    if (blocks[shgeti(blocks, key)].value.shape == edges)
+    if (blocks[shgeti(blocks, key)].value.shape == shape_edges)
     {
         for (int i = 0; i < shlen(blocks); i++) {
-            if (blocks[i].value.shape == edges && blocks[i].value.connects[shgeti(blocks, key)] == 0 && blocks[shgeti(blocks, key)].value.connects[i] == 0)
+            if (blocks[i].value.shape == shape_edges && blocks[i].value.connects[shgeti(blocks, key)] == 0 && blocks[shgeti(blocks, key)].value.connects[i] == 0)
                 blocks[shgeti(blocks, key)].value.connects[i] = 1;
         }
     }
@@ -281,6 +283,27 @@ void world_fillliquids(world* w) {
     }
     arrfree(w->waterpos);
     
+    w->generateState = genVegetation;
+}
+
+void world_addvegetation(world* w) {
+    for (int x = 0; x < WORLD_WIDTH; x++) {
+        int y = w->heightMap[x];
+        int c = murmur_hash_combine(x, y) % 256;
+        
+        if (world_getblock(w, x, y) != shgeti(blocks, "game:grass"))
+            continue;
+        
+        if (c < 16) {
+            world_setblock(w, x, y + 1, shgeti(blocks, "game:stump"));
+
+            int height = murmur_hash_combine(x, y + 4593) % 6 + 6;
+            for (int i = 0; i < height; i++) {
+                world_setblock(w, x, y + i + 2, shgeti(blocks, "game:log"));
+            }
+        }
+    }
+
     w->generateState = genData;
 }
 
@@ -289,7 +312,7 @@ void world_updatedata(world* w, int x, int y) {
     int bl = world_getblock(w, x, y);
     block b = blocks[bl].value;
     blockshape shape = b.shape;
-    if (shape == edges) {
+    if (shape == shape_edges) {
         int top = world_getblock(w, x, y + 1);
         int bottom = world_getblock(w, x, y - 1);
         int left = world_getblock(w, x - 1, y);
@@ -306,18 +329,18 @@ void world_updatedata(world* w, int x, int y) {
         data |= (!connectBlock(bl, topright)) << 5;
         data |= (!connectBlock(bl, bottomleft)) << 6;
         data |= (!connectBlock(bl, bottomright)) << 7;
-        data |= (blocks[top].value.shape != edges) << 8;
-        data |= (blocks[bottom].value.shape != edges) << 9;
-        data |= (blocks[left].value.shape != edges) << 10;
-        data |= (blocks[right].value.shape != edges) << 11;
-        data |= (blocks[topleft].value.shape != edges) << 12;
-        data |= (blocks[topright].value.shape != edges) << 13;
-        data |= (blocks[bottomleft].value.shape != edges) << 14;
-        data |= (blocks[bottomright].value.shape != edges) << 15;
-    } else if (shape == liquid) {
-        if (blocks[world_getblock(w, x, y + 1)].value.shape != liquid) {
+        data |= (blocks[top].value.shape != shape_edges) << 8;
+        data |= (blocks[bottom].value.shape != shape_edges) << 9;
+        data |= (blocks[left].value.shape != shape_edges) << 10;
+        data |= (blocks[right].value.shape != shape_edges) << 11;
+        data |= (blocks[topleft].value.shape != shape_edges) << 12;
+        data |= (blocks[topright].value.shape != shape_edges) << 13;
+        data |= (blocks[bottomleft].value.shape != shape_edges) << 14;
+        data |= (blocks[bottomright].value.shape != shape_edges) << 15;
+    } else if (shape == shape_liquid) {
+        if (blocks[world_getblock(w, x, y + 1)].value.shape != shape_liquid) {
             data = 4;
-        } else if (blocks[world_getblock(w, x, y + 2)].value.shape != liquid) {
+        } else if (blocks[world_getblock(w, x, y + 2)].value.shape != shape_liquid) {
             data = 12;
         } else {
             data = 15;
@@ -407,6 +430,34 @@ void drawBlock(SDL_Renderer* renderer, struct blockhash* blocks, int b, int x, i
     dst.x = (x * 8 - (int)(camx * 8)) * 2;
     dst.y = height - (y * 8 - (int)(camy * 8)) * 2 - 16;
     dst.w = 16;
+    dst.h = 16;
+
+    SDL_RenderCopy(renderer, blocks[block].value.tex, &src, &dst);
+}
+
+void drawBlockLog(SDL_Renderer* renderer, struct blockhash* blocks, int b, int x, int y, float camx, float camy) {
+    int data = b >> 8;
+    int block = b & 0xff;
+
+    int width, height;
+    SDL_GetRendererOutputSize(renderer, &width, &height);
+
+    int texRows;
+    SDL_QueryTexture(blocks[block].value.tex, NULL, NULL, NULL, &texRows);
+    texRows /= 8;
+
+    int row = murmur_hash_combine(x, y) % texRows;
+
+    SDL_Rect src;
+    src.x = 0;
+    src.y = row * 8;
+    src.w = 24;
+    src.h = 8;
+
+    SDL_Rect dst;
+    dst.x = (x * 8 - (int)(camx * 8)) * 2 - 16;
+    dst.y = height - (y * 8 - (int)(camy * 8)) * 2 - 16;
+    dst.w = 48;
     dst.h = 16;
 
     SDL_RenderCopy(renderer, blocks[block].value.tex, &src, &dst);
@@ -727,8 +778,10 @@ void world_render_range(world* w, int minx, int maxx, int miny, int maxy, float 
             if (block == 0)
                 continue;
             
-            if (blocks[block].value.shape == edges) {
+            if (blocks[block].value.shape == shape_edges) {
                 drawBlockEdges(renderer, blocks, b, x, y, camx - (float)width / 32, camy - (float)height / 32);
+            } else if (blocks[block].value.shape == shape_log) {
+                drawBlockLog(renderer, blocks, b, x, y, camx - (float)width / 32, camy - (float)height / 32);
             } else {
                 drawBlock(renderer, blocks, b, x, y, camx - (float)width / 32, camy - (float)height / 32);
             }
@@ -742,7 +795,7 @@ void world_render_range(world* w, int minx, int maxx, int miny, int maxy, float 
             if (blocks[block].value.foliage == NULL)
                 continue;
             
-            if (blocks[block].value.shape == edges) {
+            if (blocks[block].value.shape == shape_edges) {
                 drawBlockEdgesFoliage(renderer, blocks, b, x, y, camx - (float)width / 32, camy - (float)height / 32);
             }
         }

@@ -200,7 +200,7 @@ void init_assets(Assets *assets, SDL_Renderer *renderer) {
     
     load_all_assets(assets);
     
-    block air = create_block(NULL, NULL, true, solid);
+    block air = create_block(NULL, NULL, true, shape_solid);
     shput(blocks, "game:air", air);
     // Initialize blocks
     for (size_t i = 0; i < shlen(assets->blocks); ++i) {
