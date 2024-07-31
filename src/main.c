@@ -213,7 +213,7 @@ int main(int argc, char* argv[]) {
                         int numX = ceil((WORLD_WIDTH * 16) / 16384.0);
                         int numY = ceil((WORLD_HEIGHT * 16) / 16384.0);
 
-                        mkdir("world");
+                        mkdir("world_pic");
 
                         struct img* images = NULL;
 
@@ -231,7 +231,7 @@ int main(int argc, char* argv[]) {
                                 SDL_SetRenderTarget(renderer, NULL);
 
                                 char* filename = malloc(256);
-                                snprintf(filename, 256, "world/world_%d_%d.png", x, y);
+                                snprintf(filename, 256, "world_pic/world_%d_%d.png", x, y);
                                 IMG_SavePNG(surface, filename);
 
                                 arrput(images, ((struct img){x, y, filename}));
@@ -257,8 +257,6 @@ int main(int argc, char* argv[]) {
                             for (int y = 0; y < height; y++) {
                                 memcpy(out[images[i].y * 16384 + y] + images[i].x * 16384 * 4, row_pointers[y], width * 4);
                             }
-
-                            free(images[i].path);
                         }
 
                         write_png_file("world.png", WORLD_WIDTH * 16, WORLD_HEIGHT * 16, bit_depth, color_type, out);
@@ -267,6 +265,13 @@ int main(int argc, char* argv[]) {
                             free(out[y]);
                         }
                         free(out);
+
+                        for (int i = 0; i < arrlen(images); i++) {
+                            remove(images[i].path);
+                            free(images[i].path);
+                        }
+
+                        rmdir("world_pic");
 
                         arrfree(images);
                     }
