@@ -14,9 +14,10 @@
 #define WORLD_HEIGHT 250
 
 typedef enum blockshape {
-    solid,
-    edges,
-    liquid
+    shape_solid,
+    shape_edges,
+    shape_log,
+    shape_liquid
 } blockshape;
 
 typedef struct block {
@@ -47,6 +48,7 @@ enum worldstate {
     genEmpty,
     genBlocks,
     genLiquids,
+    genVegetation,
     genData,
     genDone
 };
@@ -71,6 +73,7 @@ world world_init(struct blockhash* blocks);
 void world_genblock(world* w);
 void world_gendata(world* w);
 void world_fillliquids(world* w);
+void world_addvegetation(world* w);
 
 void world_updatedata(world* w, int x, int y);
 void world_gendatarange(world* w, int minx, int miny, int maxx, int maxy);
@@ -85,5 +88,8 @@ void world_setblockdata(world *w, int x, int y, uint32_t v);
 
 void world_render_range(world* w, int minx, int maxx, int miny, int maxy, float camx, float camy, struct blockhash* blocks, SDL_Renderer* renderer);
 void world_render(world* w, float camx, float camy, struct blockhash* blocks, SDL_Renderer* renderer);
+
+void world_save(world* w, FILE* out);
+void world_load(world* w, FILE* in);
 
 #endif

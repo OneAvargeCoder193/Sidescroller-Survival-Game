@@ -40,6 +40,20 @@ void game_state_handle_events(void) {
 void game_state_update(SDL_Renderer* renderer, float delta) {
     const uint8_t* keys = SDL_GetKeyboardState(NULL);
 
+    int save = (keys[SDL_SCANCODE_LCTRL] || keys[SDL_SCANCODE_RCTRL]) && keys[SDL_SCANCODE_S];
+    if (save) {
+        FILE* out = fopen("save.bin", "wb");
+        world_save(&w, out);
+        fclose(out);
+    }
+
+    int load = (keys[SDL_SCANCODE_LCTRL] || keys[SDL_SCANCODE_RCTRL]) && keys[SDL_SCANCODE_L];
+    if (load) {
+        FILE* in = fopen("save.bin", "rb");
+        world_load(&w, in);
+        fclose(in);
+    }
+
     for (int i = 0; i < arrlen(entities); i++) {
         updateEntity(&entities[i], delta);
     }
@@ -92,8 +106,8 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
     y = py;
 
     if (right) {
-        if (world_getblock(&w, x, y) != shgeti(blocks, "game:grass")) {
-            world_setblockdata(&w, x, y, shgeti(blocks, "game:grass"));
+        if (world_getblock(&w, x, y) != shgeti(blocks, "game:wood")) {
+            world_setblockdata(&w, x, y, shgeti(blocks, "game:wood"));
             world_gendatarange(&w, x - 1, y - 1, x + 2, y + 2);
         }
     } else if (left) {
@@ -102,12 +116,6 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
             world_gendatarange(&w, x - 1, y - 1, x + 2, y + 2);
         }
     }
-
-    // for (int x = 0; x < WORLD_WIDTH; x++) {
-    //     for (int y = 0; y < WORLD_HEIGHT; y++) {
-    //         world_updatedata(&w, x, y);
-    //     }
-    // }
 }
 
 void game_state_draw(SDL_Renderer* renderer) {
@@ -117,8 +125,8 @@ void game_state_draw(SDL_Renderer* renderer) {
     float renplayerx = floorf(playerx * 8) / 8;
     float renplayery = floorf(playery * 8) / 8;
     
-    camx = fmaxf(renplayerx, (float)width / 32);
-    camy = fmaxf(renplayery, (float)height / 32);
+    camx = fmaxf(fminf(renplayerx, WORLD_WIDTH - (float)width / 32), (float)width / 32);
+    camy = fmaxf(fminf(renplayery, WORLD_WIDTH - (float)width / 32), (float)height / 32);
     
     for (int i = 0; i < arrlen(entities); i++) {
         renderEntity(renderer, entities[i], camx, camy);
