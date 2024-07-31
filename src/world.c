@@ -156,7 +156,11 @@ world world_init(struct blockhash* blocks) {
     w.rock.cellular_distance_func = FNL_CELLULAR_DISTANCE_EUCLIDEAN;
 
     for (int x = 0; x < WORLD_WIDTH; x++) {
-        w.heightMap[x] = fnlGetNoise2D(&w.n, x / 2.0, 0) * 30 + WORLD_HEIGHT / 2;
+        float off = -expf(-x / 50.0) * 50;
+        off -= expf(-(WORLD_WIDTH - x) / 50.0) * 50;
+        float scale = 1 - expf(-x / 50.0);
+        scale *= 1 - expf(-(WORLD_WIDTH - x) / 50.0);
+        w.heightMap[x] = fnlGetNoise2D(&w.n, x / 2.0, 0) * scale * 30 + off + WORLD_HEIGHT / 2 + 10;
     }
 
     return w;
