@@ -13,6 +13,8 @@ float camy = 0;
 
 float playerx = WORLD_WIDTH / 2;
 float playery = WORLD_HEIGHT / 2;
+float velx = 0;
+float vely = 0;
 int playerside = 0;
 float playerframe = 0;
 entitystate playerstate = idle;
@@ -27,6 +29,8 @@ void game_state_init(void) {
     playerParts[4] = shget(assets.entityTextures, "game:player_head");
     playerParts[5] = shget(assets.entityTextures, "game:player_frontarm");
     hat = shget(assets.entityTextures, "game:classic_hat");
+
+    playery = (int)w.heightMap[(int)playerx] + 1;
 }
 
 void game_state_cleanup(void) {
@@ -35,6 +39,21 @@ void game_state_cleanup(void) {
 
 void game_state_handle_events(void) {
     
+}
+
+int player_collides() {
+    int minx = floor(playerx - 1);
+    int maxx = ceil(playerx + 1);
+    int miny = floor(playery);
+    int maxy = ceil(playery + 3);
+    for (int y = miny; y < maxy; y++) {
+        for (int x = minx; x < maxx; x++) {
+            if (world_getblock(&w, x, y) != 0) {
+                return 1;
+            }
+        }
+    }
+    return 0;
 }
 
 void game_state_update(SDL_Renderer* renderer, float delta) {
@@ -85,7 +104,24 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
     }
 
     playerx += moveX * delta;
+
+    if (player_collides()) {
+        if (moveX > 0) {
+            playerx = floorf(playerx);
+        } else if (moveX < 0) {
+            playerx = ceilf(playerx);
+        }
+    }
+
     playery += moveY * delta;
+
+    if (player_collides()) {
+        if (moveY > 0) {
+            playery = floorf(playery);
+        } else if (moveY < 0) {
+            playery = ceilf(playery);
+        }
+    }
     
     int width, height;
     SDL_GetRendererOutputSize(renderer, &width, &height);
@@ -143,7 +179,7 @@ void game_state_draw(SDL_Renderer* renderer) {
 
     SDL_Rect playerDst;
     playerDst.x = (renplayerx - camx) * 16 + width / 2.0 - 32;
-    playerDst.y = height - (renplayery - camy) * 16 - height / 2.0 - 32;
+    playerDst.y = height - (renplayery - camy) * 16 - height / 2.0 - 64;
     playerDst.w = 64;
     playerDst.h = 64;
     

@@ -95,4 +95,6 @@ void world_render(world* w, float camx, float camy, struct blockhash* blocks, SD
 void world_save(world* w, FILE* out);
 void world_load(world* w, FILE* in);
 
+void save_world_to_png(world* w, SDL_Renderer* renderer);
+
 #endif

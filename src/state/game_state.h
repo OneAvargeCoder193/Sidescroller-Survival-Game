@@ -13,6 +13,8 @@ extern float camy;
 
 extern float playerx;
 extern float playery;
+extern float velx;
+extern float vely;
 extern int playerside;
 extern float playerframe;
 extern entitystate playerstate;

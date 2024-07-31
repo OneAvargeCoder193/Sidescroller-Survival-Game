@@ -4,6 +4,8 @@
 
 #include "stb_ds.h"
 
+#include <png.h>
+
 struct blockhash* blocks = NULL;
 
 uint32_t world_blocks[WORLD_WIDTH][WORLD_HEIGHT];
@@ -782,7 +784,11 @@ void world_render_range(world* w, int minx, int maxx, int miny, int maxy, float 
 
     for (int x = minx; x < maxx; x++) {
         for (int y = miny; y < maxy; y++) {
+            if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
+                continue;
+
             int b = w->blocks[x][y];
+
             int block = b & 0xff;
             if (block == 0)
                 continue;
@@ -799,6 +805,9 @@ void world_render_range(world* w, int minx, int maxx, int miny, int maxy, float 
 
     for (int x = minx; x < maxx; x++) {
         for (int y = miny; y < maxy; y++) {
+            if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
+                continue;
+            
             int b = w->blocks[x][y];
             int block = b & 0xff;
             if (blocks[block].value.foliage == NULL)
@@ -970,4 +979,160 @@ void world_load(world* w, FILE* in) {
     }
 
     hmfree(loadblocks);
+}
+
+struct img {
+    int x; int y; char* path;
+};
+
+
+void read_png_file(const char* filename, int* width, int* height, png_bytepp* row_pointers, png_byte* bit_depth, png_byte* color_type) {
+    FILE *fp = fopen(filename, "rb");
+    if (!fp) abort();
+
+    png_structp png = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+    if (!png) abort();
+
+    png_infop info = png_create_info_struct(png);
+    if (!info) abort();
+
+    if (setjmp(png_jmpbuf(png))) abort();
+
+    png_init_io(png, fp);
+
+    png_read_png(png, info, PNG_TRANSFORM_IDENTITY, PNG_INTERLACE_NONE);
+
+    *width = png_get_image_width(png, info);
+    *height = png_get_image_height(png, info);
+    *bit_depth = png_get_bit_depth(png, info);
+    *color_type = png_get_color_type(png, info);
+
+    *row_pointers = png_get_rows(png, info);
+
+    fclose(fp);
+}
+
+// Function to write PNG file
+void write_png_file(const char* filename, int width, int height, int bit_depth, int color_type, png_bytepp row_pointers) {
+    FILE *fp = fopen(filename, "wb");
+    if (!fp) {
+        fprintf(stderr, "Error opening file %s for writing\n", filename);
+        exit(EXIT_FAILURE);
+    }
+
+    png_structp png = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+    if (!png) {
+        fprintf(stderr, "Error creating PNG write structure\n");
+        fclose(fp);
+        exit(EXIT_FAILURE);
+    }
+
+    png_infop info = png_create_info_struct(png);
+    if (!info) {
+        fprintf(stderr, "Error creating PNG info structure\n");
+        png_destroy_write_struct(&png, (png_infopp)NULL);
+        fclose(fp);
+        exit(EXIT_FAILURE);
+    }
+
+    if (setjmp(png_jmpbuf(png))) {
+        fprintf(stderr, "Error during PNG write\n");
+        png_destroy_write_struct(&png, &info);
+        fclose(fp);
+        exit(EXIT_FAILURE);
+    }
+
+    png_init_io(png, fp);
+
+    png_set_IHDR(
+        png,
+        info,
+        width, height,
+        bit_depth,
+        color_type,
+        PNG_INTERLACE_NONE,
+        PNG_COMPRESSION_TYPE_DEFAULT,
+        PNG_FILTER_TYPE_DEFAULT
+    );
+
+    png_write_info(png, info);
+
+    png_write_image(png, row_pointers);
+
+    png_write_end(png, NULL);
+
+    fclose(fp);
+
+    png_destroy_write_struct(&png, &info);
+}
+
+void save_world_to_png(world* w, SDL_Renderer* renderer) {
+    // This would be way simpler if there wasnt a bug that forced me to stich together 16384x16384 images
+    int numX = ceil((WORLD_WIDTH * 16) / 16384.0);
+    int numY = ceil((WORLD_HEIGHT * 16) / 16384.0);
+
+    mkdir("world_pic");
+
+    struct img* images = NULL;
+
+    for (int x = 0; x < numX; x++) {
+        for (int y = 0; y < numY; y++) {
+            int width = min(WORLD_WIDTH * 16 - x * 16384, 16384);
+            int height = min(WORLD_HEIGHT * 16 - y * 16384, 16384);
+            
+            int blockwidth = min(WORLD_WIDTH - x * 1024, 1024);
+            int blockheight = min(WORLD_HEIGHT - y * 1024, 1024);
+            
+            SDL_Texture *sshot = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_TARGET, width, height);
+            SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormat(0, width, height, 32, SDL_PIXELFORMAT_RGBA32);
+            
+            SDL_SetRenderTarget(renderer, sshot);
+            world_render_range(w, x * 1024 - 1, x * 1024 + blockwidth + 1, y * 1024 - 1, y * 1024 + blockheight + 1, x * 1024 + blockwidth / 2, y * 1024 + blockheight / 2, blocks, renderer);
+            SDL_RenderReadPixels(renderer, NULL, SDL_PIXELFORMAT_RGBA32, surface->pixels, surface->pitch);
+            SDL_SetRenderTarget(renderer, NULL);
+
+            char* filename = malloc(256);
+            snprintf(filename, 256, "world_pic/world_%d_%d.png", x, y);
+            IMG_SavePNG(surface, filename);
+
+            arrput(images, ((struct img){x, y, filename}));
+
+            SDL_FreeSurface(surface);
+            SDL_DestroyTexture(sshot);
+        }
+    }
+
+    png_byte bit_depth;
+    png_byte color_type;
+    png_bytepp row_pointers;
+
+    png_byte** out = (png_byte**)malloc((WORLD_HEIGHT * 16) * sizeof(png_byte*));
+    for (int y = 0; y < WORLD_HEIGHT * 16; y++) {
+        out[y] = malloc(WORLD_WIDTH * 16 * 4);
+        memset(out[y], 255, WORLD_WIDTH * 16 * 4);
+    }
+
+    for (int i = 0; i < arrlen(images); i++) {
+        int width, height;
+        read_png_file(images[i].path, &width, &height, &row_pointers, &bit_depth, &color_type);
+        for (int y = 0; y < height; y++) {
+            memcpy(out[images[i].y * 16384 + y] + images[i].x * 16384 * 4, row_pointers[y], width * 4);
+        }
+    }
+
+    write_png_file("world.png", WORLD_WIDTH * 16, WORLD_HEIGHT * 16, bit_depth, color_type, out);
+
+    for (int y = 0; y < WORLD_HEIGHT * 16; ++y) {
+        free(out[y]);
+    }
+    free(out);
+
+    for (int i = 0; i < arrlen(images); i++) {
+        // remove(images[i].path);
+        free(images[i].path);
+    }
+
+    // rmdir("world_pic");
+
+    arrfree(images);
 }
