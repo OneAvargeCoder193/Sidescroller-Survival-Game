@@ -813,3 +813,152 @@ void world_render(world* w, float camx, float camy, struct blockhash* blocks, SD
 
     world_render_range(w, minx, maxx, miny, maxy, camx, camy, blocks, renderer);
 }
+
+void save_string(char* str, FILE* out) {
+    if (fputc(strlen(str), out) == EOF) {
+        fprintf(stderr, "Failed to write string length to file: %d\n", errno);
+        exit(EXIT_FAILURE);
+    }
+    if (fwrite(str, 1, strlen(str), out) != strlen(str)) {
+        fprintf(stderr, "Failed to write string to file: %d\n", errno);
+        exit(EXIT_FAILURE);
+    }
+}
+
+void save_number(int32_t num, FILE* out) {
+    if (fwrite(&num, sizeof(int32_t), 1, out) != 1) {
+        fprintf(stderr, "Failed to write number to file: %d\n", errno);
+        exit(EXIT_FAILURE);
+    }
+}
+
+void save_compressed_number(int32_t num, FILE* out) {
+    while (num > 127) {
+        uint8_t byte = (num & 0x7F) | 0x80;
+        if (fwrite(&byte, sizeof(uint8_t), 1, out) == 1) {
+            fprintf(stderr, "Failed to write compressed number to file: %d\n", errno);
+            exit(EXIT_FAILURE);
+        }
+        num >>= 7;
+    }
+    uint8_t byte = num & 0x7F;
+    if (fwrite(&byte, sizeof(uint8_t), 1, out) == 1) {
+        fprintf(stderr, "Failed to write compressed number to file: %d\n", errno);
+        exit(EXIT_FAILURE);
+    }
+}
+
+void world_save(world* w, FILE* out) {
+    save_number(WORLD_WIDTH, out);
+    save_number(WORLD_HEIGHT, out);
+
+    save_number(shlen(blocks), out);
+    for (int i = 0; i < shlen(blocks); i++) {
+        save_string(blocks[i].key, out);
+        save_number(i, out);
+    }
+
+    int last = w->blocks[0][0];
+    int num = 0;
+    for (int y = 0; y < WORLD_HEIGHT; y++) {
+        for (int x = 0; x < WORLD_WIDTH; x++) {
+            int block = w->blocks[x][y];
+            if (block != last) {
+                save_number(num, out);
+                save_number(last, out);
+                num = 0;
+            }
+            num++;
+            last = block;
+        }
+    }
+    if (num != 0) {
+        save_number(num, out);
+        save_number(last, out);
+    }
+}
+
+char* read_string(FILE* in) {
+    uint8_t length;
+    if (fread(&length, sizeof(uint8_t), 1, in) != 1) {
+        fprintf(stderr, "Failed reading string length in file: %d\n", errno);
+        exit(EXIT_FAILURE);
+    }
+
+    char* str = (char*)malloc(length + 1);
+    if (fread(str, sizeof(char), length, in) != length) {
+        fprintf(stderr, "Failed reading string in file: %d\n", errno);
+        exit(EXIT_FAILURE);
+    }
+    str[length] = '\0';
+    return str;
+}
+
+int32_t read_number(FILE* in) {
+    int32_t num;
+    if (fread(&num, sizeof(int32_t), 1, in) != 1) {
+        fprintf(stderr, "Failed reading number in file: %d\n", errno);
+        exit(EXIT_FAILURE);
+    }
+    return num;
+}
+
+int32_t read_compressed_number(FILE* in) {
+    int32_t num = 0;
+    int shift = 0;
+    uint8_t byte;
+    do {
+        if (fread(&byte, sizeof(uint8_t), 1, in) != 1) {
+            fprintf(stderr, "Failed reading compressed number in file: %d\n", errno);
+            exit(EXIT_FAILURE);
+        }
+        num |= (byte & 0x7F) << shift;
+        shift += 7;
+    } while (byte & 0x80);
+    return num;
+}
+
+void world_load(world* w, FILE* in) {
+    int width = read_number(in);
+    int height = read_number(in);
+
+    if (width != WORLD_WIDTH || height != WORLD_HEIGHT) {
+        fprintf(stderr, "World dimensions do not match!\n");
+        return;
+    }
+
+    int numBlocks = read_number(in);
+
+    struct { int key; char* value; }* loadblocks = NULL;
+    for (int i = 0; i < numBlocks; i++) {
+        char* str = read_string(in);
+        int id = read_number(in);
+
+        hmput(loadblocks, id, str);
+    }
+
+    int i = 0;
+    while (i < WORLD_WIDTH * WORLD_HEIGHT) {
+        int num = read_number(in);
+        int b = read_number(in);
+        int block = b & 0xff;
+        int data = b >> 8;
+        char* key = hmget(loadblocks, block);
+        block = shgeti(blocks, key) | data << 8;
+
+        for (int j = 0; j < num; j++) {
+            int x = i % WORLD_WIDTH;
+            int y = i / WORLD_WIDTH;
+
+            w->blocks[x][y] = block;
+
+            i++;
+        }
+    }
+
+    for (int i = 0; i < numBlocks; i++) {
+        free(loadblocks[i].value);
+    }
+
+    hmfree(loadblocks);
+}

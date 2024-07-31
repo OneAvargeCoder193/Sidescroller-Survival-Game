@@ -89,4 +89,7 @@ void world_setblockdata(world *w, int x, int y, uint32_t v);
 void world_render_range(world* w, int minx, int maxx, int miny, int maxy, float camx, float camy, struct blockhash* blocks, SDL_Renderer* renderer);
 void world_render(world* w, float camx, float camy, struct blockhash* blocks, SDL_Renderer* renderer);
 
+void world_save(world* w, FILE* out);
+void world_load(world* w, FILE* in);
+
 #endif
