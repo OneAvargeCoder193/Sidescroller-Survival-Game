@@ -10,8 +10,8 @@
 #include "assets.h"
 #include "cJSON.h"
 
-#define WORLD_WIDTH 500
-#define WORLD_HEIGHT 250
+#define WORLD_WIDTH 2000
+#define WORLD_HEIGHT 500
 
 typedef enum blockshape {
     shape_solid,
@@ -53,9 +53,12 @@ enum worldstate {
     genDone
 };
 
+extern uint32_t world_blocks[WORLD_WIDTH][WORLD_HEIGHT];
+extern uint32_t world_heightmap[WORLD_WIDTH];
+
 typedef struct world {
-    uint32_t blocks[WORLD_WIDTH][WORLD_HEIGHT];
-    float heightMap[WORLD_WIDTH];
+    uint32_t (*blocks)[WORLD_HEIGHT];
+    float *heightMap;
     int genIdx;
     bool finishedGen;
     bool finishedGenData;

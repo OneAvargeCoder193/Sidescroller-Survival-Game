@@ -15,7 +15,7 @@ HEADERS := $(wildcard $(SRCDIR)/*.h) $(wildcard $(SRCDIR)/**/*.h)
 OBJECTS := $(SOURCES:$(SRCDIR)/%.c=$(SRCDIR)/%.o)
 EXECUTABLE = $(BINDIR)/main.exe
 
-LIBDIR = $(shell sdl2-config --libs) $(shell pkg-config --libs SDL2_image) $(shell pkg-config --libs SDL2_ttf)
+LIBDIR = $(shell sdl2-config --libs) $(shell pkg-config --libs SDL2_image) $(shell pkg-config --libs SDL2_ttf) -lpng
 
 INCLUDE_PATHS := $(addprefix -I, $(SRCDIR)) $(addprefix -I, $(sort $(dir $(wildcard $(SRCDIR)/**/))))
 

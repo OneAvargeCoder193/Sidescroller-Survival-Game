@@ -6,6 +6,9 @@
 
 struct blockhash* blocks = NULL;
 
+uint32_t world_blocks[WORLD_WIDTH][WORLD_HEIGHT];
+uint32_t world_heightmap[WORLD_WIDTH];
+
 world w = {NULL, NULL, 0, 0, 0, NULL, NULL, {0}, {0}, genEmpty};
 
 block create_block(SDL_Texture* tex, SDL_Texture* foliage, bool transparent, blockshape shape) {
@@ -140,6 +143,8 @@ struct ffp* floodfill(world* w, int x, int y, int block) {
 
 world world_init(struct blockhash* blocks) {
     world w = {0};
+    w.blocks = world_blocks;
+    w.heightMap = world_heightmap;
     w.genIdx = 0;
     w.finishedGen = false;
     w.finishedGenData = false;
