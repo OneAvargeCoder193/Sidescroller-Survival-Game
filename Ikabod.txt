@@ -15,3 +15,5 @@ Ideas I'm not so sure about:
 
 We could have infinite terrain, or we could have the game take place on many seperate islands... or just one big landmass.
 Advantage of seperate islands is that it would allow us to give them unique properties, almost like a dimension. There could be a magic island or something.
+
+Billboard
