@@ -6,6 +6,7 @@ Ideas for things the player will need to adapt to:
 - Events (raids, natural disasters)
 - Night time (enemies come out at night)
 - Seasons (Winter time makes food scarce and water freeze, and may also bring new enemies)
+- Guy comes like every week to collect stuff
 
 Ideas I'm not so sure about:
 - Disease (player randomly contracts diseases and will have to adapt to them before they pass. These can range from hunger drain or sneezing.)
