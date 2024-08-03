@@ -16,6 +16,7 @@ float playery = WORLD_HEIGHT / 2;
 float velx = 0;
 float vely = 0;
 int playerside = 0;
+int lastGrounded = 0;
 float playerframe = 0;
 entitystate playerstate = idle;
 SDL_Texture* playerParts[6];
@@ -128,7 +129,7 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
 
     if (player_collides(0, 0)) {
         if (!player_collides(0, 1)) {
-            playery++;
+            playery = floorf(playery) + 1;
             vely = 0;
         } else if (velx > 0) {
             playerx = floorf(playerx);
@@ -141,11 +142,14 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
 
     playery += vely * delta;
 
+    int grounded = 0;
+
     if (player_collides(0, 0)) {
         if (vely > 0) {
             playery = floorf(playery);
             vely = 0;
         } else if (vely < 0) {
+            grounded = 1;
             playery = ceilf(playery);
             if (keys[SDL_SCANCODE_SPACE]) {
                 vely = sqrtf(4 * 2 * 30);
@@ -160,6 +164,14 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
             }
         }
     }
+
+    if (!grounded && lastGrounded) {
+        if (player_collides(0, -2) && !player_collides(0, -0.9)) {
+            playery = ceilf(playery) - 1;
+        }
+    }
+
+    lastGrounded = grounded;
 
     if (vely < 0) {
         playerstate = falling;
