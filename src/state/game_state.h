@@ -5,7 +5,9 @@
 
 typedef enum entitystate {
     idle,
-    walking
+    walking,
+    jumping,
+    falling
 } entitystate;
 
 extern float camx;
