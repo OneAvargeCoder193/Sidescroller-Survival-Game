@@ -78,25 +78,21 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
         updateEntity(&entities[i], delta);
     }
 
-    float moveX = (keys[SDL_SCANCODE_D] - keys[SDL_SCANCODE_A]) * 8;
-    float moveY = (keys[SDL_SCANCODE_W] - keys[SDL_SCANCODE_S]) * 8;
+    float moveX = (keys[SDL_SCANCODE_D] - keys[SDL_SCANCODE_A]) * 12;
 
     if (playerstate == walking) {
         playerframe += fabsf(moveX) * 4 * delta;
-        if (playerframe >= 25) {
+        if (playerframe >= 22) {
             playerframe -= 12;
         }
     }
     if (playerstate == jumping) {
-        playerframe += 6 * delta;
-        if (playerframe >= 10) {
-            playerframe = 9;
-        }
+        playerframe = 6;
     }
     if (playerstate == falling) {
         playerframe += 6 * delta;
-        if (playerframe >= 13) {
-            playerframe = 12;
+        if (playerframe >= 10) {
+            playerframe = 9;
         }
     }
 
@@ -109,11 +105,11 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
     if (playerstate == walking || playerstate == idle) {
         if (moveX < 0) {
             if (playerstate != walking)
-                playerframe = 13;
+                playerframe = 10;
             playerstate = walking;
         } else if (moveX > 0) {
             if (playerstate != walking)
-                playerframe = 13;
+                playerframe = 10;
             playerstate = walking;
         } else if (moveX == 0) {
             if (playerstate != idle)
@@ -123,7 +119,7 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
     }
 
     velx = moveX;
-    vely -= 30 * delta;
+    vely -= 120 * delta;
 
     playerx += velx * delta;
 
@@ -152,8 +148,7 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
             grounded = 1;
             playery = ceilf(playery);
             if (keys[SDL_SCANCODE_SPACE]) {
-                vely = sqrtf(4 * 2 * 30);
-                playerframe = 6;
+                vely = sqrtf(4 * 2 * 120);
                 playerstate = jumping;
             } else {
                 vely = 0;
@@ -175,7 +170,7 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
 
     if (vely < 0) {
         playerstate = falling;
-        playerframe = 10;
+        playerframe = 7;
     }
 
     int width, height;
