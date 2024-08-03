@@ -853,14 +853,14 @@ void save_number(int32_t num, FILE* out) {
 void save_compressed_number(int32_t num, FILE* out) {
     while (num > 127) {
         uint8_t byte = (num & 0x7F) | 0x80;
-        if (fwrite(&byte, sizeof(uint8_t), 1, out) == 1) {
+        if (fwrite(&byte, sizeof(uint8_t), 1, out) != 1) {
             fprintf(stderr, "Failed to write compressed number to file: %d\n", errno);
             exit(EXIT_FAILURE);
         }
         num >>= 7;
     }
     uint8_t byte = num & 0x7F;
-    if (fwrite(&byte, sizeof(uint8_t), 1, out) == 1) {
+    if (fwrite(&byte, sizeof(uint8_t), 1, out) != 1) {
         fprintf(stderr, "Failed to write compressed number to file: %d\n", errno);
         exit(EXIT_FAILURE);
     }
@@ -882,17 +882,19 @@ void world_save(world* w, FILE* out) {
         for (int x = 0; x < WORLD_WIDTH; x++) {
             int block = w->blocks[x][y];
             if (block != last) {
-                save_number(num, out);
-                save_number(last, out);
+                save_compressed_number(num, out);
+                save_compressed_number(last, out);
+                
                 num = 0;
+                last = block;
             }
+
             num++;
-            last = block;
         }
     }
     if (num != 0) {
-        save_number(num, out);
-        save_number(last, out);
+        save_compressed_number(num, out);
+        save_compressed_number(last, out);
     }
 }
 
@@ -924,15 +926,27 @@ int32_t read_number(FILE* in) {
 int32_t read_compressed_number(FILE* in) {
     int32_t num = 0;
     int shift = 0;
-    uint8_t byte;
-    do {
-        if (fread(&byte, sizeof(uint8_t), 1, in) != 1) {
-            fprintf(stderr, "Failed reading compressed number in file: %d\n", errno);
-            exit(EXIT_FAILURE);
+    int byte;
+
+    while (1) {
+        byte = fgetc(in);
+        if (byte == EOF) {
+            if (feof(in)) {
+                fprintf(stderr, "Unexpected end of file while reading compressed number\n");
+                exit(EXIT_FAILURE);
+            } else {
+                perror("Failed to read compressed number from file");
+                exit(EXIT_FAILURE);
+            }
         }
+
         num |= (byte & 0x7F) << shift;
+        if (!(byte & 0x80)) {
+            break;
+        }
         shift += 7;
-    } while (byte & 0x80);
+    }
+
     return num;
 }
 
@@ -957,8 +971,8 @@ void world_load(world* w, FILE* in) {
 
     int i = 0;
     while (i < WORLD_WIDTH * WORLD_HEIGHT) {
-        int num = read_number(in);
-        int b = read_number(in);
+        int num = read_compressed_number(in);
+        int b = read_compressed_number(in);
         int block = b & 0xff;
         int data = b >> 8;
         char* key = hmget(loadblocks, block);
