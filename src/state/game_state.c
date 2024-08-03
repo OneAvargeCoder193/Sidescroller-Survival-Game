@@ -41,11 +41,11 @@ void game_state_handle_events(void) {
     
 }
 
-int player_collides() {
-    int minx = floor(playerx - 1);
-    int maxx = ceil(playerx + 1);
-    int miny = floor(playery);
-    int maxy = ceil(playery + 3);
+int player_collides(float offx, float offy) {
+    int minx = floor(playerx - 1 + offx);
+    int maxx = ceil(playerx + 1 + offx);
+    int miny = floor(playery + offy);
+    int maxy = ceil(playery + 3 + offy);
     for (int y = miny; y < maxy; y++) {
         for (int x = minx; x < maxx; x++) {
             if (world_getblock(&w, x, y) != 0) {
@@ -81,48 +81,91 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
     float moveY = (keys[SDL_SCANCODE_W] - keys[SDL_SCANCODE_S]) * 8;
 
     if (playerstate == walking) {
-        playerframe += fabsf(moveX) * 8 * delta;
-        if (playerframe >= 21) {
+        playerframe += fabsf(moveX) * 4 * delta;
+        if (playerframe >= 25) {
             playerframe -= 12;
+        }
+    }
+    if (playerstate == jumping) {
+        playerframe += 6 * delta;
+        if (playerframe >= 10) {
+            playerframe = 9;
+        }
+    }
+    if (playerstate == falling) {
+        playerframe += 6 * delta;
+        if (playerframe >= 13) {
+            playerframe = 12;
         }
     }
 
     if (moveX < 0) {
-        playerside = 0;
-        if (playerstate != walking)
-            playerframe = 9;
-        playerstate = walking;
-    } else if (moveX > 0) {
         playerside = 1;
-        if (playerstate != walking)
-            playerframe = 9;
-        playerstate = walking;
-    } else if (moveX == 0) {
-        if (playerstate != idle)
-            playerframe = 0;
-        playerstate = idle;
+    } else if (moveX > 0) {
+        playerside = 0;
     }
 
-    playerx += moveX * delta;
+    if (playerstate == walking || playerstate == idle) {
+        if (moveX < 0) {
+            if (playerstate != walking)
+                playerframe = 13;
+            playerstate = walking;
+        } else if (moveX > 0) {
+            if (playerstate != walking)
+                playerframe = 13;
+            playerstate = walking;
+        } else if (moveX == 0) {
+            if (playerstate != idle)
+                playerframe = 0;
+            playerstate = idle;
+        }
+    }
 
-    if (player_collides()) {
-        if (moveX > 0) {
+    velx = moveX;
+    vely -= 30 * delta;
+
+    playerx += velx * delta;
+
+    if (player_collides(0, 0)) {
+        if (!player_collides(0, 1)) {
+            playery++;
+            vely = 0;
+        } else if (velx > 0) {
             playerx = floorf(playerx);
-        } else if (moveX < 0) {
+            velx = 0;
+        } else if (velx < 0) {
             playerx = ceilf(playerx);
+            velx = 0;
         }
     }
 
-    playery += moveY * delta;
+    playery += vely * delta;
 
-    if (player_collides()) {
-        if (moveY > 0) {
+    if (player_collides(0, 0)) {
+        if (vely > 0) {
             playery = floorf(playery);
-        } else if (moveY < 0) {
+            vely = 0;
+        } else if (vely < 0) {
             playery = ceilf(playery);
+            if (keys[SDL_SCANCODE_SPACE]) {
+                vely = sqrtf(4 * 2 * 30);
+                playerframe = 6;
+                playerstate = jumping;
+            } else {
+                vely = 0;
+                if (playerstate == falling || playerstate == jumping) {
+                    playerframe = 0;
+                    playerstate = idle;
+                }
+            }
         }
     }
-    
+
+    if (vely < 0) {
+        playerstate = falling;
+        playerframe = 10;
+    }
+
     int width, height;
     SDL_GetRendererOutputSize(renderer, &width, &height);
 
