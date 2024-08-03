@@ -1,5 +1,6 @@
 .vscode/*
 *.py
+!test.py
 dlls.zip
 dlls/*
 dlls
