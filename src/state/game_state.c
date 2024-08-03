@@ -82,17 +82,17 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
 
     if (playerstate == walking) {
         playerframe += fabsf(moveX) * 4 * delta;
-        if (playerframe >= 22) {
+        if (playerframe >= 21) {
             playerframe -= 12;
         }
     }
     if (playerstate == jumping) {
-        playerframe = 6;
+        playerframe = 5;
     }
     if (playerstate == falling) {
         playerframe += 6 * delta;
-        if (playerframe >= 10) {
-            playerframe = 9;
+        if (playerframe >= 9) {
+            playerframe = 8;
         }
     }
 
@@ -105,11 +105,11 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
     if (playerstate == walking || playerstate == idle) {
         if (moveX < 0) {
             if (playerstate != walking)
-                playerframe = 10;
+                playerframe = 9;
             playerstate = walking;
         } else if (moveX > 0) {
             if (playerstate != walking)
-                playerframe = 10;
+                playerframe = 9;
             playerstate = walking;
         } else if (moveX == 0) {
             if (playerstate != idle)
