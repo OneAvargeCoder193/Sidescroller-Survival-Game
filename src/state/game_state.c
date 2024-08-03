@@ -15,6 +15,7 @@ float playerx = WORLD_WIDTH / 2;
 float playery = WORLD_HEIGHT / 2;
 float velx = 0;
 float vely = 0;
+int step = 0;
 int playerside = 0;
 int lastGrounded = 0;
 float playerframe = 0;
@@ -80,16 +81,24 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
 
     float moveX = (keys[SDL_SCANCODE_D] - keys[SDL_SCANCODE_A]) * 12;
 
-    if (playerstate == walking) {
+    if (playerstate == idle) {
+        if (step) {
+            playerframe += 10 * delta;
+            if (playerframe >= 5) {
+                playerframe = 0;
+                step = 0;
+            }
+        } else {
+            step = rand() % 256 == 0;
+        }
+    } else if (playerstate == walking) {
         playerframe += fabsf(moveX) * 4 * delta;
         if (playerframe >= 21) {
             playerframe -= 12;
         }
-    }
-    if (playerstate == jumping) {
+    } else if (playerstate == jumping) {
         playerframe = 5;
-    }
-    if (playerstate == falling) {
+    } else if (playerstate == falling) {
         playerframe += 6 * delta;
         if (playerframe >= 9) {
             playerframe = 8;
@@ -150,6 +159,7 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
             if (keys[SDL_SCANCODE_SPACE]) {
                 vely = sqrtf(4 * 2 * 120);
                 playerstate = jumping;
+                playerframe = 6;
             } else {
                 vely = 0;
                 if (playerstate == falling || playerstate == jumping) {
@@ -168,7 +178,7 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
 
     lastGrounded = grounded;
 
-    if (vely < 0) {
+    if (vely < 0 && playerstate != falling) {
         playerstate = falling;
         playerframe = 7;
     }
