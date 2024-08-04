@@ -125,7 +125,12 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
         updateEntity(&entities[i], delta);
     }
 
-    float moveX = (keys[SDL_SCANCODE_D] - keys[SDL_SCANCODE_A]) * 12;
+    float maxSpeed = 12;
+
+    float fric = 0.9;
+    float accel = (1 - fric) * maxSpeed / fric;
+
+    float moveX = (keys[SDL_SCANCODE_D] - keys[SDL_SCANCODE_A]) * accel;
 
     if (playerstate == idle) {
         if (step) {
@@ -138,7 +143,7 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
             step = rand() % 256 == 0;
         }
     } else if (playerstate == walking) {
-        playerframe += fabsf(moveX) * 4 * delta;
+        playerframe += fabsf(moveX / accel * maxSpeed) * 4 * delta;
         if (playerframe >= 21) {
             playerframe -= 12;
         }
@@ -173,7 +178,7 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
         }
     }
 
-    velx = moveX;
+    velx = (velx + moveX) * fric;
     vely -= 120 * delta;
 
     float dx = velx * delta;
