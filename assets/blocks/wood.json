@@ -1,4 +1,5 @@
 {
     "shape": "edges",
-    "texture": "game:wood"
+    "texture": "game:wood",
+    "color": ["#A1662F"]
 }

@@ -1,4 +1,5 @@
 {
     "shape": "liquid",
-    "texture": "game:water"
+    "texture": "game:water",
+    "color": ["#007FFF"]
 }

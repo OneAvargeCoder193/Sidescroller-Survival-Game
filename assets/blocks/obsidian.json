@@ -2,5 +2,5 @@
     "shape": "edges",
     "texture": "game:obsidian",
     "foliage": "game:obsidian_foliage",
-    "connects_all": true
+    "color": ["#000030"]
 }

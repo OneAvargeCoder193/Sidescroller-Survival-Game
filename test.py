@@ -59,14 +59,14 @@ with open("save.bin", "rb") as file:
     n = 0
     while i < width * height:
         n += 1
-        num = read_number(file)
+        num = read_compressed_number(file)
         data = read_compressed_number(file)
         # print(data & 0xff)
 
         color = (random.randrange(255), random.randrange(255), random.randrange(255))
 
         # print(i, i + num, width, height, width * height)
-
+        
         for j in range(num):
             x = i % width
             y = i // width
@@ -74,7 +74,7 @@ with open("save.bin", "rb") as file:
             # print(x, y, i)
 
             if data != 0:
-                img.putpixel((x, y), color)
+                img.putpixel((x, height - y - 1), color)
 
             # print(x, y)
 

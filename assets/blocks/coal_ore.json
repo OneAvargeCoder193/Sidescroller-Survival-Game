@@ -2,5 +2,6 @@
     "shape": "edges",
     "texture": "game:coal_ore",
     "foliage": "game:coal_ore_foliage",
-    "connects": ["game:stone", "game:tin_ore", "game:dirt", "game:grass"]
+    "connects": ["game:stone", "game:tin_ore", "game:dirt", "game:grass"],
+    "color": ["#202020"]
 }
