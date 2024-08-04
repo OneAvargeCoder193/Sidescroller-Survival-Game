@@ -1,4 +1,5 @@
 {
     "shape": "log",
-    "texture": "game:log"
+    "texture": "game:log",
+    "color": ["#6F3F00"]
 }

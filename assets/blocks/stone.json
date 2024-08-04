@@ -2,5 +2,6 @@
     "shape": "edges",
     "texture": "game:stone",
     "foliage": "game:stone_foliage",
-    "connects": ["game:copper_ore", "game:tin_ore"]
+    "connects": ["game:copper_ore", "game:tin_ore"],
+    "color": ["#7F7F7F"]
 }

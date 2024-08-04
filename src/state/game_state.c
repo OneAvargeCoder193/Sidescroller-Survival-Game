@@ -43,11 +43,16 @@ void game_state_handle_events(void) {
     
 }
 
-int player_collides(float offx, float offy) {
-    int minx = floor(playerx - 1 + offx);
-    int maxx = ceil(playerx + 1 + offx);
-    int miny = floor(playery + offy);
-    int maxy = ceil(playery + 3 + offy);
+int player_collides(float offx, float offy, float dx, float dy) {
+    float minOffX = fminf(dx, 0);
+    float maxOffX = fmaxf(dx, 0);
+    float minOffY = fminf(dy, 0);
+    float maxOffY = fmaxf(dy, 0);
+
+    int minx = floor(playerx - 1 + offx + minOffX);
+    int maxx = ceil(playerx + 1 + offx + maxOffX);
+    int miny = floor(playery + offy + minOffY);
+    int maxy = ceil(playery + 3 + offy + maxOffY);
     for (int y = miny; y < maxy; y++) {
         for (int x = minx; x < maxx; x++) {
             if (world_getblock(&w, x, y) != 0) {
@@ -56,6 +61,47 @@ int player_collides(float offx, float offy) {
         }
     }
     return 0;
+}
+
+int move_player(float dx, float dy, int* grounded) {
+    playerx += dx;
+
+    int collide = player_collides(0, 0, 0, 0);
+
+    if (player_collides(0, 0, 0, 0)) {
+        if (!player_collides(0, 1, 0, 0)) {
+            playery = floorf(playery) + 1;
+            vely = 0;
+        } else if (dx > 0) {
+            playerx = floorf(playerx);
+            velx = 0;
+        } else if (dx < 0) {
+            playerx = ceilf(playerx);
+            velx = 0;
+        }
+    }
+
+    playery += dy;
+
+    *grounded = 0;
+
+    if (player_collides(0, 0, 0, 0)) {
+        if (dy > 0) {
+            playery = floorf(playery);
+            vely = 0;
+        } else if (dy < 0) {
+            *grounded = 1;
+            playery = ceilf(playery);
+            
+            vely = 0;
+            if (playerstate == falling || playerstate == jumping) {
+                playerframe = 0;
+                playerstate = idle;
+            }
+        }
+    }
+
+    return collide;
 }
 
 void game_state_update(SDL_Renderer* renderer, float delta) {
@@ -130,51 +176,31 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
     velx = moveX;
     vely -= 120 * delta;
 
-    playerx += velx * delta;
-
-    if (player_collides(0, 0)) {
-        if (!player_collides(0, 1)) {
-            playery = floorf(playery) + 1;
-            vely = 0;
-        } else if (velx > 0) {
-            playerx = floorf(playerx);
-            velx = 0;
-        } else if (velx < 0) {
-            playerx = ceilf(playerx);
-            velx = 0;
-        }
-    }
-
-    playery += vely * delta;
+    float dx = velx * delta;
+    float dy = vely * delta;
+    int divisions = ceil(sqrt(dx * dx + dy * dy));
 
     int grounded = 0;
+    // for (int i = 0; i < divisions; i++) {
+    //     int g;
+    //     if (move_player(dx / divisions, dy / divisions, &g))
+    //         break;
+    //     grounded = grounded || g;
+    // }
 
-    if (player_collides(0, 0)) {
-        if (vely > 0) {
-            playery = floorf(playery);
-            vely = 0;
-        } else if (vely < 0) {
-            grounded = 1;
-            playery = ceilf(playery);
-            if (keys[SDL_SCANCODE_SPACE]) {
-                vely = sqrtf(4 * 2 * 120);
-                playerstate = jumping;
-                playerframe = 6;
-            } else {
-                vely = 0;
-                if (playerstate == falling || playerstate == jumping) {
-                    playerframe = 0;
-                    playerstate = idle;
-                }
-            }
-        }
+    move_player(dx, dy, &grounded);
+
+    if (grounded && keys[SDL_SCANCODE_SPACE]) {
+        vely = sqrtf(4 * 2 * 120);
+        playerstate = jumping;
+        playerframe = 6;
     }
 
-    if (!grounded && lastGrounded) {
-        if (player_collides(0, -2) && !player_collides(0, -0.9)) {
-            playery = ceilf(playery) - 1;
-        }
-    }
+    // if (!grounded && lastGrounded) {
+    //     if (player_collides(0, -2, 0, 0) && !player_collides(0, -0.9, 0, 0)) {
+    //         playery = ceilf(playery) - 1;
+    //     }
+    // }
 
     lastGrounded = grounded;
 

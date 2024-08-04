@@ -23,6 +23,7 @@ typedef enum blockshape {
 typedef struct block {
     SDL_Texture* tex;
     SDL_Texture* foliage;
+    SDL_Color* colors;
     int* connects;
     blockshape shape;
     bool innerBorders;

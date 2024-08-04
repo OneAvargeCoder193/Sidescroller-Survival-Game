@@ -17,8 +17,10 @@ block create_block(SDL_Texture* tex, SDL_Texture* foliage, bool transparent, blo
     block res;
     res.tex = tex;
     res.foliage = foliage;
-    // res.transparent = transparent;
+    res.connects = NULL;
     res.shape = shape;
+    res.innerBorders = false;
+    res.colors = NULL;
     return res;
 }
 
@@ -37,11 +39,31 @@ blockshape string_to_blockshape(const char* str) {
     }
 }
 
+SDL_Color hexToColor(const char* hex) {
+    SDL_Color color = {0, 0, 0, 255};  // Default color is black with full opacity
+
+    if (hex[0] == '#') {
+        unsigned int r, g, b;
+        if (sscanf(hex + 1, "%02x%02x%02x", &r, &g, &b) == 3) {
+            color.r = r;
+            color.g = g;
+            color.b = b;
+        } else {
+            fprintf(stderr, "Invalid color format\n");
+        }
+    } else {
+        fprintf(stderr, "Color must start with #\n");
+    }
+
+    return color;
+}
+
 void registerBlock(const char* key, const cJSON* json, Assets *assets) {
     cJSON* textureJson = cJSON_GetObjectItemCaseSensitive(json, "texture");
     cJSON* foliageJson = cJSON_GetObjectItemCaseSensitive(json, "foliage");
     cJSON* shapeJson = cJSON_GetObjectItemCaseSensitive(json, "shape");
     cJSON* innerBordersJson = cJSON_GetObjectItemCaseSensitive(json, "innerBorders");
+    cJSON* colorJson = cJSON_GetObjectItemCaseSensitive(json, "color");
 
     SDL_Texture* tex = NULL;
     if (textureJson)
@@ -50,6 +72,14 @@ void registerBlock(const char* key, const cJSON* json, Assets *assets) {
     SDL_Texture* foliage = NULL;
     if (foliageJson)
         foliage = shget(assets->blockTextures, foliageJson->valuestring);
+    
+    SDL_Color* colors = NULL;
+    if (colorJson) {
+        for (int i = 0; i < cJSON_GetArraySize(colorJson); i++) {
+            char* colorStr = cJSON_GetArrayItem(colorJson, i)->valuestring;
+            arrput(colors, hexToColor(colorStr));
+        }
+    }
     
     blockshape shape = shape_solid;
     if (shapeJson)
@@ -65,8 +95,7 @@ void registerBlock(const char* key, const cJSON* json, Assets *assets) {
     res.connects = NULL;
     res.shape = shape;
     res.innerBorders = innerBorders;
-
-    // blocks[shgeti(blocks, key)].value = res;
+    res.colors = colors;
 
     shput(blocks, key, res);
 }
@@ -1081,72 +1110,95 @@ void write_png_file(const char* filename, int width, int height, int bit_depth, 
 }
 
 void save_world_to_png(world* w, SDL_Renderer* renderer) {
-    // This would be way simpler if there wasnt a bug that forced me to stich together 16384x16384 images
-    int numX = ceil((WORLD_WIDTH * 16) / 16384.0);
-    int numY = ceil((WORLD_HEIGHT * 16) / 16384.0);
+    SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, WORLD_WIDTH, WORLD_HEIGHT, 32, SDL_PIXELFORMAT_RGBA32);
+    SDL_LockSurface(surface);
 
-    mkdir("world_pic");
-
-    struct img* images = NULL;
-
-    for (int x = 0; x < numX; x++) {
-        for (int y = 0; y < numY; y++) {
-            int width = min(WORLD_WIDTH * 16 - x * 16384, 16384);
-            int height = min(WORLD_HEIGHT * 16 - y * 16384, 16384);
+    for (int x = 0; x < WORLD_WIDTH; x++) {
+        for (int y = 0; y < WORLD_HEIGHT; y++) {
+            uint32_t b = w->blocks[x][y];
+            uint32_t block = b & 0xff;
             
-            int blockwidth = min(WORLD_WIDTH - x * 1024, 1024);
-            int blockheight = min(WORLD_HEIGHT - y * 1024, 1024);
+            SDL_Color* colors = blocks[block].value.colors;
+            if (colors == NULL)
+                continue;
             
-            SDL_Texture *sshot = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_TARGET, width, height);
-            SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormat(0, width, height, 32, SDL_PIXELFORMAT_RGBA32);
-            
-            SDL_SetRenderTarget(renderer, sshot);
-            world_render_range(w, x * 1024 - 1, x * 1024 + blockwidth + 1, y * 1024 - 1, y * 1024 + blockheight + 1, x * 1024 + blockwidth / 2, y * 1024 + blockheight / 2, blocks, renderer);
-            SDL_RenderReadPixels(renderer, NULL, SDL_PIXELFORMAT_RGBA32, surface->pixels, surface->pitch);
-            SDL_SetRenderTarget(renderer, NULL);
+            int rand = murmur_hash_combine(x, y) % arrlen(colors);
+            SDL_Color color = colors[rand];
 
-            char* filename = malloc(256);
-            snprintf(filename, 256, "world_pic/world_%d_%d.png", x, y);
-            IMG_SavePNG(surface, filename);
+            uint32_t col = SDL_MapRGBA(surface->format, color.r, color.g, color.b, color.a);
 
-            arrput(images, ((struct img){x, y, filename}));
-
-            SDL_FreeSurface(surface);
-            SDL_DestroyTexture(sshot);
+            ((Uint32*)surface->pixels)[(surface->h - y - 1) * surface->w + x] = col;
         }
     }
 
-    png_byte bit_depth;
-    png_byte color_type;
-    png_bytepp row_pointers;
+    SDL_UnlockSurface(surface);
+    IMG_SavePNG(surface, "world.png");
+    // // This would be way simpler if there wasnt a bug that forced me to stich together 16384x16384 images
+    // int numX = ceil((WORLD_WIDTH * 16) / 16384.0);
+    // int numY = ceil((WORLD_HEIGHT * 16) / 16384.0);
 
-    png_byte** out = (png_byte**)malloc((WORLD_HEIGHT * 16) * sizeof(png_byte*));
-    for (int y = 0; y < WORLD_HEIGHT * 16; y++) {
-        out[y] = malloc(WORLD_WIDTH * 16 * 4);
-        memset(out[y], 255, WORLD_WIDTH * 16 * 4);
-    }
+    // mkdir("world_pic");
 
-    for (int i = 0; i < arrlen(images); i++) {
-        int width, height;
-        read_png_file(images[i].path, &width, &height, &row_pointers, &bit_depth, &color_type);
-        for (int y = 0; y < height; y++) {
-            memcpy(out[images[i].y * 16384 + y] + images[i].x * 16384 * 4, row_pointers[y], width * 4);
-        }
-    }
+    // struct img* images = NULL;
 
-    write_png_file("world.png", WORLD_WIDTH * 16, WORLD_HEIGHT * 16, bit_depth, color_type, out);
+    // for (int x = 0; x < numX; x++) {
+    //     for (int y = 0; y < numY; y++) {
+    //         int width = min(WORLD_WIDTH * 16 - x * 16384, 16384);
+    //         int height = min(WORLD_HEIGHT * 16 - y * 16384, 16384);
+            
+    //         int blockwidth = min(WORLD_WIDTH - x * 1024, 1024);
+    //         int blockheight = min(WORLD_HEIGHT - y * 1024, 1024);
+            
+    //         SDL_Texture *sshot = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_TARGET, width, height);
+    //         SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormat(0, width, height, 32, SDL_PIXELFORMAT_RGBA32);
+            
+    //         SDL_SetRenderTarget(renderer, sshot);
+    //         world_render_range(w, x * 1024 - 1, x * 1024 + blockwidth + 1, y * 1024 - 1, y * 1024 + blockheight + 1, x * 1024 + blockwidth / 2, y * 1024 + blockheight / 2, blocks, renderer);
+    //         SDL_RenderReadPixels(renderer, NULL, SDL_PIXELFORMAT_RGBA32, surface->pixels, surface->pitch);
+    //         SDL_SetRenderTarget(renderer, NULL);
 
-    for (int y = 0; y < WORLD_HEIGHT * 16; ++y) {
-        free(out[y]);
-    }
-    free(out);
+    //         char* filename = malloc(256);
+    //         snprintf(filename, 256, "world_pic/world_%d_%d.png", x, y);
+    //         IMG_SavePNG(surface, filename);
 
-    for (int i = 0; i < arrlen(images); i++) {
+    //         arrput(images, ((struct img){x, y, filename}));
+
+    //         SDL_FreeSurface(surface);
+    //         SDL_DestroyTexture(sshot);
+    //     }
+    // }
+
+    // png_byte bit_depth;
+    // png_byte color_type;
+    // png_bytepp row_pointers;
+
+    // png_byte** out = (png_byte**)malloc((WORLD_HEIGHT * 16) * sizeof(png_byte*));
+    // for (int y = 0; y < WORLD_HEIGHT * 16; y++) {
+    //     out[y] = malloc(WORLD_WIDTH * 16 * 4);
+    //     memset(out[y], 255, WORLD_WIDTH * 16 * 4);
+    // }
+
+    // for (int i = 0; i < arrlen(images); i++) {
+    //     int width, height;
+    //     read_png_file(images[i].path, &width, &height, &row_pointers, &bit_depth, &color_type);
+    //     for (int y = 0; y < height; y++) {
+    //         memcpy(out[images[i].y * 16384 + y] + images[i].x * 16384 * 4, row_pointers[y], width * 4);
+    //     }
+    // }
+
+    // write_png_file("world.png", WORLD_WIDTH * 16, WORLD_HEIGHT * 16, bit_depth, color_type, out);
+
+    // for (int y = 0; y < WORLD_HEIGHT * 16; ++y) {
+    //     free(out[y]);
+    // }
+    // free(out);
+
+    // for (int i = 0; i < arrlen(images); i++) {
         // remove(images[i].path);
-        free(images[i].path);
-    }
+    //     free(images[i].path);
+    // }
 
     // rmdir("world_pic");
 
-    arrfree(images);
+    // arrfree(images);
 }

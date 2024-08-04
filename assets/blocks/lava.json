@@ -1,4 +1,5 @@
 {
     "shape": "liquid",
-    "texture": "game:lava"
+    "texture": "game:lava",
+    "color": ["#FFA000"]
 }

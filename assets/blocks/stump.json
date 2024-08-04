@@ -1,4 +1,5 @@
 {
     "shape": "log",
-    "texture": "game:tree_stump"
+    "texture": "game:tree_stump",
+    "color": ["#6F3F00"]
 }
