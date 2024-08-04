@@ -201,11 +201,11 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
         playerframe = 6;
     }
 
-    // if (!grounded && lastGrounded) {
-    //     if (player_collides(0, -2, 0, 0) && !player_collides(0, -0.9, 0, 0)) {
-    //         playery = ceilf(playery) - 1;
-    //     }
-    // }
+    if (!grounded && lastGrounded) {
+        if (player_collides(0, -2, 0, 0) && !player_collides(0, -0.9, 0, 0)) {
+            playery = ceilf(playery) - 1;
+        }
+    }
 
     lastGrounded = grounded;
 

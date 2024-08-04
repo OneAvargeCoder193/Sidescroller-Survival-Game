@@ -66,6 +66,7 @@ typedef struct world {
     struct ffp* fillWaterPos;
     struct ffp* waterpos;
     fnl_state n;
+    fnl_state cave;
     fnl_state rock;
     enum worldstate generateState;
 } world;

@@ -186,6 +186,10 @@ world world_init(struct blockhash* blocks) {
     w.n = fnlCreateState();
     w.n.fractal_type = FNL_FRACTAL_FBM;
     w.n.octaves = 16;
+
+    w.cave = fnlCreateState();
+    w.cave.fractal_type = FNL_FRACTAL_FBM;
+    w.cave.octaves = 16;
     
     w.rock = fnlCreateState();
     w.rock.noise_type = FNL_NOISE_CELLULAR;
@@ -237,9 +241,14 @@ void world_genblock(world* w) {
             arrput(w->fillWaterPos, ((struct ffp){x, y, shgeti(blocks, "game:water")}));
             arrput(w->waterpos, ((struct ffp){x, y, shgeti(blocks, "game:water")}));
         }
-        if (fabsf(fnlGetNoise2D(&w->n, x, y)) < 0.2 && fabsf(fnlGetNoise2D(&w->n, x + 5399, y + 3494)) < 0.2) {
+        
+        int caveMask = fnlGetNoise2D(&w->n, x - 2939, y + 2929) < -0.2;
+        int thickCave = fabsf(fnlGetNoise2D(&w->n, x, y)) * fabsf(fnlGetNoise2D(&w->n, x + 5399, y + 3494)) < 0.04;
+        int thinCave = fabsf(fnlGetNoise2D(&w->n, x, y)) < 0.1 && fabsf(fnlGetNoise2D(&w->n, x + 5399, y + 3494)) < 0.1;
+        if (caveMask?thickCave:thinCave) {
             block = "game:air";
         }
+        
         if (strcmp(block, "game:dirt") == 0) {
             int nx = x + fnlGetNoise2D(&w->n, x - 2283, y - 9872) * 50;
             int ny = y + fnlGetNoise2D(&w->n, x + 3939, y + 2939) * 50;
