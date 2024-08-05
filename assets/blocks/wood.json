@@ -1,5 +1,6 @@
 {
     "shape": "edges",
     "texture": "game:wood",
-    "color": ["#A1662F"]
+    "color": ["#A1662F"],
+    "collision": true
 }

@@ -3,5 +3,6 @@
     "texture": "game:copper_ore",
     "foliage": "game:copper_ore_foliage",
     "connects": ["game:stone", "game:tin_ore", "game:dirt", "game:grass"],
-    "color": ["#B87333", "#BB6622", "#C56A39", "#43B3AE", "#A1bAA1", "#BAA37F", "#7FE7CE"]
+    "color": ["#B87333", "#BB6622", "#C56A39", "#43B3AE", "#A1bAA1", "#BAA37F", "#7FE7CE"],
+    "collision": true
 }

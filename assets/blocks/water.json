@@ -1,5 +1,6 @@
 {
     "shape": "liquid",
     "texture": "game:water",
-    "color": ["#007FFF"]
+    "color": ["#007FFF"],
+    "collision": false
 }

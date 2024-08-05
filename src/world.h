@@ -26,7 +26,7 @@ typedef struct block {
     SDL_Color* colors;
     int* connects;
     blockshape shape;
-    bool innerBorders;
+    bool collision;
 } block;
 
 struct blockhash {

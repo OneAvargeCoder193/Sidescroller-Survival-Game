@@ -55,7 +55,7 @@ int player_collides(float offx, float offy, float dx, float dy) {
     int maxy = ceil(playery + 3 + offy + maxOffY);
     for (int y = miny; y < maxy; y++) {
         for (int x = minx; x < maxx; x++) {
-            if (world_getblock(&w, x, y) != 0) {
+            if (blocks[world_getblock(&w, x, y)].value.collision) {
                 return 1;
             }
         }
@@ -140,7 +140,7 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
                 step = 0;
             }
         } else {
-            step = rand() % 256 == 0;
+            step = rand() % 2048 == 0;
         }
     } else if (playerstate == walking) {
         playerframe += fabsf(moveX / accel * maxSpeed) * 4 * delta;
@@ -202,7 +202,7 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
     }
 
     if (!grounded && lastGrounded) {
-        if (player_collides(0, -2, 0, 0) && !player_collides(0, -0.9, 0, 0)) {
+        if (player_collides(0, -1.9, 0, 0) && !player_collides(0, -0.9, 0, 0)) {
             playery = ceilf(playery) - 1;
         }
     }
@@ -262,6 +262,8 @@ void game_state_draw(SDL_Renderer* renderer) {
     int animId = (int)playerframe;
     int side = playerside;
 
+    world_render(&w, camx, camy, blocks, renderer);
+
     SDL_Rect playerSrc;
     playerSrc.x = animId * 32;
     playerSrc.y = side * 32;
@@ -281,6 +283,4 @@ void game_state_draw(SDL_Renderer* renderer) {
     SDL_RenderCopy(renderer, playerParts[4], &playerSrc, &playerDst);
     SDL_RenderCopy(renderer, hat, &playerSrc, &playerDst);
     SDL_RenderCopy(renderer, playerParts[5], &playerSrc, &playerDst);
-
-    world_render(&w, camx, camy, blocks, renderer);
 }

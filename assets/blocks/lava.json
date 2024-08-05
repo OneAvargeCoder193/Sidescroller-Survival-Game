@@ -1,5 +1,6 @@
 {
     "shape": "liquid",
     "texture": "game:lava",
-    "color": ["#FFA000"]
+    "color": ["#FFA000"],
+    "collision": false
 }

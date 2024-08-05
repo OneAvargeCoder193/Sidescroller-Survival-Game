@@ -3,5 +3,6 @@
     "texture": "game:grass",
     "foliage": "game:grass_foliage",
     "connects": ["game:dirt", "game:stone"],
-    "color": ["#136D15", "#117C13", "#138510", "#268B07", "#41980A"]
+    "color": ["#136D15", "#117C13", "#138510", "#268B07", "#41980A"],
+    "collision": true
 }

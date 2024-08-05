@@ -1,5 +1,6 @@
 {
     "shape": "log",
     "texture": "game:log",
-    "color": ["#6F3F00"]
+    "color": ["#6F3F00"],
+    "collision": false
 }

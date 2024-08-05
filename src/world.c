@@ -19,7 +19,7 @@ block create_block(SDL_Texture* tex, SDL_Texture* foliage, bool transparent, blo
     res.foliage = foliage;
     res.connects = NULL;
     res.shape = shape;
-    res.innerBorders = false;
+    res.collision = false;
     res.colors = NULL;
     return res;
 }
@@ -62,8 +62,8 @@ void registerBlock(const char* key, const cJSON* json, Assets *assets) {
     cJSON* textureJson = cJSON_GetObjectItemCaseSensitive(json, "texture");
     cJSON* foliageJson = cJSON_GetObjectItemCaseSensitive(json, "foliage");
     cJSON* shapeJson = cJSON_GetObjectItemCaseSensitive(json, "shape");
-    cJSON* innerBordersJson = cJSON_GetObjectItemCaseSensitive(json, "innerBorders");
     cJSON* colorJson = cJSON_GetObjectItemCaseSensitive(json, "color");
+    cJSON* collisionJson = cJSON_GetObjectItemCaseSensitive(json, "collision");
 
     SDL_Texture* tex = NULL;
     if (textureJson)
@@ -85,16 +85,16 @@ void registerBlock(const char* key, const cJSON* json, Assets *assets) {
     if (shapeJson)
         shape = string_to_blockshape(shapeJson->valuestring);
     
-    bool innerBorders = false;
-    if (innerBordersJson)
-        innerBorders = innerBordersJson->valueint;
+    bool collision = false;
+    if (collisionJson)
+        collision = collisionJson->valueint;
     
     block res;
     res.tex = tex;
     res.foliage = foliage;
     res.connects = NULL;
     res.shape = shape;
-    res.innerBorders = innerBorders;
+    res.collision = collision;
     res.colors = colors;
 
     shput(blocks, key, res);
@@ -266,6 +266,9 @@ void world_genblock(world* w) {
             if (fnlGetNoise2D(&w->rock, nx + 39032, ny - 2939) < -0.9) {
                 block = "game:tin_ore";
             }
+            if (fnlGetNoise2D(&w->rock, nx - 2939, ny + 69303) < -0.9) {
+                block = "game:coal_ore";
+            }
         }
         w->blocks[x][y] = shgeti(blocks, block);
     }
@@ -297,7 +300,7 @@ void world_fillliquids(world* w) {
     for (int x = 0; x < WORLD_WIDTH; x++) {
         for (int y = 0; y < WORLD_HEIGHT / 2; y++) {
             if (w->blocks[x][y] == 0 && y < w->heightMap[x] && !contains(w->waterpos, x, y, shgeti(blocks, "game:water"))) {
-                float chance = (WORLD_HEIGHT - y - 1) / (float)WORLD_HEIGHT;
+                float chance = 2 * (WORLD_HEIGHT - y) / (float)WORLD_HEIGHT - 1;
                 chance *= 0.02;
                 if ((murmur_hash_combine(x, y) & 0xff) / 255.0 < chance) {
                     struct ffp* points = floodfill(w, x, y, shgeti(blocks, "game:lava"));
@@ -515,10 +518,6 @@ void drawBlockLog(SDL_Renderer* renderer, struct blockhash* blocks, int b, int x
 void drawBlockEdges(SDL_Renderer* renderer, struct blockhash* blocks, int b, int x, int y, float camx, float camy) {
     int data = b >> 8;
     int block = b & 0xff;
-
-    if (blocks[block].value.innerBorders) {
-        data <<= 8;
-    }
 
     int top = (data >> 8) & 1;
     int bottom = (data >> 9) & 1;
