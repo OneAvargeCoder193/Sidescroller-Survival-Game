@@ -64,22 +64,7 @@ int player_collides(float offx, float offy, float dx, float dy) {
 }
 
 int move_player(float dx, float dy, int* grounded) {
-    playerx += dx;
-
     int collide = player_collides(0, 0, 0, 0);
-
-    if (player_collides(0, 0, 0, 0)) {
-        if (!player_collides(0, 1, 0, 0)) {
-            playery = floorf(playery) + 1;
-            vely = 0;
-        } else if (dx > 0) {
-            playerx = floorf(playerx);
-            velx = 0;
-        } else if (dx < 0) {
-            playerx = ceilf(playerx);
-            velx = 0;
-        }
-    }
 
     playery += dy;
 
@@ -98,6 +83,21 @@ int move_player(float dx, float dy, int* grounded) {
                 playerframe = 0;
                 playerstate = idle;
             }
+        }
+    }
+    
+    playerx += dx;
+
+    if (player_collides(0, 0, 0, 0)) {
+        if (!player_collides(0, 1, 0, 0) && *grounded) {
+            playery = floorf(playery) + 1;
+            vely = 0;
+        } else if (dx > 0) {
+            playerx = floorf(playerx);
+            velx = 0;
+        } else if (dx < 0) {
+            playerx = ceilf(playerx);
+            velx = 0;
         }
     }
 
@@ -186,14 +186,12 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
     int divisions = ceil(sqrt(dx * dx + dy * dy));
 
     int grounded = 0;
-    // for (int i = 0; i < divisions; i++) {
-    //     int g;
-    //     if (move_player(dx / divisions, dy / divisions, &g))
-    //         break;
-    //     grounded = grounded || g;
-    // }
-
-    move_player(dx, dy, &grounded);
+    for (int i = 0; i < divisions; i++) {
+        int g;
+        if (move_player(dx / divisions, dy / divisions, &g))
+            break;
+        grounded = grounded || g;
+    }
 
     if (grounded && keys[SDL_SCANCODE_SPACE]) {
         vely = sqrtf(4 * 2 * 120);
@@ -232,12 +230,12 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
     x = px;
     y = py;
 
-    if (right) {
+    if (left) {
         if (world_getblock(&w, x, y) != shgeti(blocks, "game:wood")) {
             world_setblockdata(&w, x, y, shgeti(blocks, "game:wood"));
             world_gendatarange(&w, x - 1, y - 1, x + 2, y + 2);
         }
-    } else if (left) {
+    } else if (right) {
         if (world_getblock(&w, x, y) != shgeti(blocks, "game:air")) {
             world_setblockdata(&w, x, y, shgeti(blocks, "game:air"));
             world_gendatarange(&w, x - 1, y - 1, x + 2, y + 2);
