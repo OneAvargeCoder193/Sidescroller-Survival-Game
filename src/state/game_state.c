@@ -251,7 +251,7 @@ void game_state_draw(SDL_Renderer* renderer) {
     float renplayery = floorf(playery * 8) / 8;
     
     camx = fmaxf(fminf(renplayerx, WORLD_WIDTH - (float)width / 32), (float)width / 32);
-    camy = fmaxf(fminf(renplayery, WORLD_WIDTH - (float)width / 32), (float)height / 32);
+    camy = fmaxf(fminf(renplayery, WORLD_HEIGHT - (float)height / 32), (float)height / 32);
     
     for (int i = 0; i < arrlen(entities); i++) {
         renderEntity(renderer, entities[i], camx, camy);
