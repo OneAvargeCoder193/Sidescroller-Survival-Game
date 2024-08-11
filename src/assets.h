@@ -26,6 +26,7 @@ typedef struct {
 typedef struct {
     TextureAsset *blockTextures; // stb_ds hashmap
     TextureAsset *entityTextures; // stb_ds hashmap
+    TextureAsset *particleTextures; // stb_ds hashmap
     JSONAsset *blocks;       // stb_ds hashmap
     JSONAsset *entities;       // stb_ds hashmap
     SDL_Renderer *renderer; // SDL renderer for creating textures

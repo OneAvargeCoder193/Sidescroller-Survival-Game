@@ -23,6 +23,10 @@ entitystate playerstate = idle;
 SDL_Texture* playerParts[6];
 SDL_Texture* hat;
 
+SDL_Texture* rainTex;
+
+struct rain* raindrops = NULL;
+
 void game_state_init(void) {
     playerParts[0] = shget(assets.entityTextures, "game:player_backarm");
     playerParts[1] = shget(assets.entityTextures, "game:player_backleg");
@@ -32,14 +36,16 @@ void game_state_init(void) {
     playerParts[5] = shget(assets.entityTextures, "game:player_frontarm");
     hat = shget(assets.entityTextures, "game:classic_hat");
 
+    rainTex = shget(assets.particleTextures, "game:rain");
+
     playery = (int)w.heightMap[(int)playerx] + 1;
 }
 
 void game_state_cleanup(void) {
-    
+    arrfree(raindrops);
 }
 
-void game_state_handle_events(void) {
+void game_state_handle_events(SDL_Event e) {
     
 }
 
@@ -230,6 +236,30 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
     x = px;
     y = py;
 
+    for (int i = 0; i < arrlen(raindrops); ) {
+        struct rain* r = &raindrops[i];
+        r->x += 10 * delta;
+        r->y -= 40 * delta;
+
+        if (blocks[world_getblock(&w, r->x, r->y)].value.collision) {
+            arrdel(raindrops, i);
+        } else {
+            i++;
+        }
+    }
+
+    for (int i = 0; i < 1; i++) {
+        float xinterp = rand() / (float)RAND_MAX;
+
+        float offset = velx * (WORLD_HEIGHT - camy + height / 32) / 40;
+
+        int minx = -(WORLD_HEIGHT / 4) - (height / 128) + (camy / 4) - (width / 32) + camx + offset;
+        int maxx = -(WORLD_HEIGHT / 4) + (height / 128) + (camy / 4) + (width / 32) + camx + offset;
+        float x = (maxx - minx) * xinterp + minx;
+        float y = WORLD_HEIGHT;
+        arrput(raindrops, ((struct rain){x, y}));
+    }
+
     if (left) {
         if (world_getblock(&w, x, y) != shgeti(blocks, "game:wood")) {
             world_setblockdata(&w, x, y, shgeti(blocks, "game:wood"));
@@ -281,4 +311,19 @@ void game_state_draw(SDL_Renderer* renderer) {
     SDL_RenderCopy(renderer, playerParts[4], &playerSrc, &playerDst);
     SDL_RenderCopy(renderer, hat, &playerSrc, &playerDst);
     SDL_RenderCopy(renderer, playerParts[5], &playerSrc, &playerDst);
+
+    for (int i = 0; i < arrlen(raindrops); i++) {
+        struct rain r = raindrops[i];
+        
+        float renx = floorf(r.x * 8) / 8;
+        float reny = floorf(r.y * 8) / 8;
+
+        SDL_Rect rect;
+        rect.x = (renx - camx) * 16 + width / 2.0 - 16;
+        rect.y = height - (reny - camy) * 16 - height / 2.0 - 16;
+        rect.w = 32;
+        rect.h = 32;
+        
+        SDL_RenderCopy(renderer, rainTex, NULL, &rect);
+    }
 }

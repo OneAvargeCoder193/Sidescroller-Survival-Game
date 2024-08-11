@@ -12,7 +12,9 @@ typedef enum {
 extern state_type state;
 
 void state_init(void);
+void state_cleanup(void);
 void state_set(state_type new_state);
+void state_handle_events(SDL_Event e);
 void state_update(SDL_Renderer* renderer, float delta);
 void state_draw(SDL_Renderer* renderer);
 

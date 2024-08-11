@@ -189,11 +189,13 @@ void load_all_assets(Assets *assets) {
     load_assets_from_folder_json(assets, "assets/entities", "game", &assets->entities);
     load_assets_from_folder_png(assets, "assets/blocks/textures", "game", &assets->blockTextures);
     load_assets_from_folder_png(assets, "assets/entities/textures", "game", &assets->entityTextures);
+    load_assets_from_folder_png(assets, "assets/particles/textures", "game", &assets->particleTextures);
 }
 
 void init_assets(Assets *assets, SDL_Renderer *renderer) {
     assets->blockTextures = NULL;
     assets->entityTextures = NULL;
+    assets->particleTextures = NULL;
     assets->blocks = NULL;
     assets->entities = NULL;
     assets->renderer = renderer;
@@ -236,6 +238,12 @@ void free_assets(Assets *assets) {
         free(assets->entityTextures[i].key);
     }
     shfree(assets->entityTextures);
+
+    for (size_t i = 0; i < shlen(assets->particleTextures); ++i) {
+        SDL_DestroyTexture(assets->particleTextures[i].value);
+        free(assets->particleTextures[i].key);
+    }
+    shfree(assets->particleTextures);
     
     for (size_t i = 0; i < shlen(assets->blocks); ++i) {
         cJSON_free((cJSON *)assets->blocks[i].value);

@@ -13,7 +13,7 @@ void menu_state_cleanup(void) {
     
 }
 
-void menu_state_handle_events(void) {
+void menu_state_handle_events(SDL_Event e) {
     
 }
 

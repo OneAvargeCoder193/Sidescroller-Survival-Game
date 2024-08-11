@@ -12,7 +12,7 @@ void loading_state_cleanup(void) {
     
 }
 
-void loading_state_handle_events(void) {
+void loading_state_handle_events(SDL_Event e) {
     
 }
 
@@ -21,7 +21,8 @@ void loading_state_update(SDL_Renderer* renderer, float delta) {
         w = world_init(blocks);
     }
     if (w.generateState != genDone) {
-        for (int i = 0; i < 1000; i++) {
+        // Automatically calculate how many steps to do in one frame based on deltatime
+        for (int i = 0; i < 6 / delta; i++) { // Magic number (7 is close to 1000 / 144 (6.94444...) which is the target fps but i use 6 because it is more stable)
             switch (w.generateState) {
             case genBlocks:
                 world_genblock(&w);

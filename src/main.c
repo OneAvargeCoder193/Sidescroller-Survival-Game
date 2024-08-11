@@ -42,6 +42,12 @@ int main(int argc, char* argv[]) {
         printf("TTF Error: %d\n", TTF_GetError());
         return -1;
     }
+    
+    if (Mix_Init(MIX_INIT_OGG) == 0) {
+        printf("Failed to initialize the Mix library\n");
+        printf("Mix Error: %d\n", Mix_GetError());
+        return -1;
+    }
 
     if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0) {
         printf("Failed to initialize the mixer library\n");
@@ -78,8 +84,9 @@ int main(int argc, char* argv[]) {
     }
 
     test = Mix_LoadWAV("assets/sfx/test.wav");
-    music = Mix_LoadMUS("assets/music/important.wav");
+    music = Mix_LoadMUS("assets/music/Will of Iron (Sibrix' theme) - Vacant Space OST.ogg");
     
+    state = STATE_MENU;
     state_init();
 
     init_assets(&assets, renderer);
@@ -142,6 +149,8 @@ int main(int argc, char* argv[]) {
                     }
                     break;
             }
+
+            state_handle_events(e);
         }
         
         next = SDL_GetPerformanceCounter();
@@ -200,6 +209,8 @@ int main(int argc, char* argv[]) {
     shfree(entitytypes);
 
     free_assets(&assets);
+
+    state_cleanup();
 
     return 0;
 }
