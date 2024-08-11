@@ -251,7 +251,7 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
     for (int i = 0; i < 1; i++) {
         float xinterp = rand() / (float)RAND_MAX;
 
-        float offset = velx * (WORLD_HEIGHT - camy + height / 32) / 40;
+        float offset = velx * (WORLD_HEIGHT - camy + height / 32) / 80;
 
         int minx = -(WORLD_HEIGHT / 4) - (height / 128) + (camy / 4) - (width / 32) + camx + offset;
         int maxx = -(WORLD_HEIGHT / 4) + (height / 128) + (camy / 4) + (width / 32) + camx + offset;
