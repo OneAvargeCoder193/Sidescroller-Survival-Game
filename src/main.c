@@ -4,13 +4,12 @@
 #include <stdbool.h>
 #include <sys/stat.h>
 
-#include <png.h>
-
 #define FNL_IMPL
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL_ttf.h>
+#include <SDL2/SDL_mixer.h>
 
 #define STB_DS_IMPLEMENTATION
 #include "stb_ds.h"
@@ -28,6 +27,9 @@ SDL_Texture* loadTexture(const char* path) {
     return IMG_LoadTexture(renderer, path);
 }
 
+Mix_Music* music = NULL;
+Mix_Chunk* test = NULL;
+
 int main(int argc, char* argv[]) {
     if(SDL_Init(SDL_INIT_VIDEO) < 0) {
         printf("Failed to initialize the SDL2 library\n");
@@ -39,6 +41,11 @@ int main(int argc, char* argv[]) {
         printf("Failed to initialize the TTF library\n");
         printf("TTF Error: %d\n", TTF_GetError());
         return -1;
+    }
+
+    if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0) {
+        printf("Failed to initialize the mixer library\n");
+        printf("Mix Error: %d\n", Mix_GetError());
     }
 
     SDL_Window *window = SDL_CreateWindow("Survival Game",
@@ -69,6 +76,9 @@ int main(int argc, char* argv[]) {
         printf("TTF Error: %d\n", TTF_GetError());
         return -1;
     }
+
+    test = Mix_LoadWAV("assets/sfx/test.wav");
+    music = Mix_LoadMUS("assets/music/important.wav");
     
     state_init();
 
@@ -122,6 +132,8 @@ int main(int argc, char* argv[]) {
                         SDL_FreeSurface(sshot);
                     } else if (e.key.keysym.sym == SDLK_F3) {
                         save_world_to_png(&w, renderer);
+                    } else if (e.key.keysym.sym == SDLK_h) {
+                        Mix_PlayChannel(-1, test, 0);
                     }
                     break;
                 case SDL_MOUSEBUTTONUP:
@@ -135,6 +147,11 @@ int main(int argc, char* argv[]) {
         next = SDL_GetPerformanceCounter();
         double delta = (double)(next - start) / SDL_GetPerformanceFrequency();
         double fps = 1 / delta;
+
+        if (Mix_PlayingMusic() == 0) {
+            Mix_PlayMusic(music, -1);
+            Mix_VolumeMusic(32);
+        }
 
         if (fps < 144) {
             SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
@@ -168,6 +185,9 @@ int main(int argc, char* argv[]) {
     SDL_DestroyRenderer(renderer);
 
     TTF_CloseFont(font);
+    
+    Mix_FreeMusic(music);
+    Mix_FreeChunk(test);
 
     for (int i = 0; i < arrlen(entities); i++) {
         destroyEntity(entities[i]);
