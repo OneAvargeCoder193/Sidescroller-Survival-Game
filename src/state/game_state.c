@@ -238,8 +238,8 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
 
     for (int i = 0; i < arrlen(raindrops); ) {
         struct rain* r = &raindrops[i];
-        r->x += 10 * delta;
-        r->y -= 40 * delta;
+        r->x += 20 * delta;
+        r->y -= 80 * delta;
 
         if (blocks[world_getblock(&w, r->x, r->y)].value.collision) {
             arrdel(raindrops, i);
