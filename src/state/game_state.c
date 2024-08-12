@@ -238,9 +238,9 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
 
     for (int i = 0; i < arrlen(raindrops); ) {
         struct rain* r = &raindrops[i];
-        r->frame += delta * 6;
+        r->frame += delta * 24;
 
-        if (r->frame > 4) {
+        if (r->frame > 7) {
             arrdel(raindrops, i);
         } else {
             i++;
@@ -248,7 +248,7 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
     }
 
     // for (int i = 0; i < 1; i++) {
-    if (rand() % 256 < 16) {
+    if (rand() % 256 < 128) {
         float xinterp = rand() / (float)RAND_MAX;
 
         int minx = camx - width / 32;
