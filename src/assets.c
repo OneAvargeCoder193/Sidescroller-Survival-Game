@@ -188,12 +188,14 @@ void load_assets_from_folder_json(Assets *assets, const char *folder_path, const
 void load_all_assets(Assets *assets) {
     load_assets_from_folder_json(assets, "assets/blocks", "game", &assets->blocks);
     load_assets_from_folder_json(assets, "assets/entities", "game", &assets->entities);
+    load_assets_from_folder_png(assets, "assets/textures", "game", &assets->textures);
     load_assets_from_folder_png(assets, "assets/blocks/textures", "game", &assets->blockTextures);
     load_assets_from_folder_png(assets, "assets/entities/textures", "game", &assets->entityTextures);
     load_assets_from_folder_png(assets, "assets/particles/textures", "game", &assets->particleTextures);
 }
 
 void init_assets(Assets *assets, SDL_Renderer *renderer) {
+    assets->textures = NULL;
     assets->blockTextures = NULL;
     assets->entityTextures = NULL;
     assets->particleTextures = NULL;
@@ -228,6 +230,12 @@ void init_assets(Assets *assets, SDL_Renderer *renderer) {
 }
 
 void free_assets(Assets *assets) {
+    for (size_t i = 0; i < shlen(assets->textures); ++i) {
+        SDL_DestroyTexture(assets->textures[i].value);
+        free(assets->textures[i].key);
+    }
+    shfree(assets->textures);
+
     for (size_t i = 0; i < shlen(assets->blockTextures); ++i) {
         SDL_DestroyTexture(assets->blockTextures[i].value);
         free(assets->blockTextures[i].key);

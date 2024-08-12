@@ -26,6 +26,9 @@ extern SDL_Texture* hat;
 
 extern SDL_Texture* rainTex;
 
+extern SDL_Texture* sun;
+extern SDL_Texture* sunRing;
+
 enum weather {
     weather_clear,
     weather_raining

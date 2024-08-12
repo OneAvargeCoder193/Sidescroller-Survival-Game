@@ -24,6 +24,7 @@ typedef struct {
 } JSONAsset;
 
 typedef struct {
+    TextureAsset *textures;
     TextureAsset *blockTextures; // stb_ds hashmap
     TextureAsset *entityTextures; // stb_ds hashmap
     TextureAsset *particleTextures; // stb_ds hashmap

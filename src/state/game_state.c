@@ -25,6 +25,9 @@ SDL_Texture* hat;
 
 SDL_Texture* rainTex;
 
+SDL_Texture* sun;
+SDL_Texture* sunRing;
+
 struct rain* raindrops = NULL;
 
 enum weather weatherState;
@@ -40,6 +43,9 @@ void game_state_init(void) {
     hat = shget(assets.entityTextures, "game:classic_hat");
 
     rainTex = shget(assets.particleTextures, "game:rain");
+
+    sun = shget(assets.textures, "game:sun");
+    sunRing = shget(assets.textures, "game:sun_ring");
 
     playery = (int)w.heightMap[(int)playerx] + 1;
 
@@ -293,6 +299,34 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
     }
 }
 
+float calculate_sun_coverage(SDL_Rect r, int width, int height) {
+    int num = 0;
+    int covered = 0;
+
+    for (int y = r.y + 8; y < r.y + r.h; y += 16) {
+        for (int x = r.x + 8; x < r.x + r.w; x += 16) {
+            int cx = x - r.x - r.w / 2;
+            int cy = y - r.y - r.h / 2;
+
+            int dist = cx * cx + cy * cy;
+
+            if (dist > 900)
+                continue;
+
+            int px = (int)((x - width / 2) / 16.0 + camx);
+            int py = (int)((height - y - height / 2) / 16.0 + camy);
+            
+            num++;
+
+            if (blocks[world_getblock(&w, px, py)].value.collision) {
+                covered++;
+            }
+        }
+    }
+
+    return (float)covered / num;
+}
+
 void game_state_draw(SDL_Renderer* renderer) {
     int width, height;
     SDL_GetRendererOutputSize(renderer, &width, &height);
@@ -302,15 +336,24 @@ void game_state_draw(SDL_Renderer* renderer) {
     
     camx = fmaxf(fminf(renplayerx, WORLD_WIDTH - (float)width / 32), (float)width / 32);
     camy = fmaxf(fminf(renplayery, WORLD_HEIGHT - (float)height / 32), (float)height / 32);
+
+    SDL_Rect sunDst;
+    sunDst.x = width / 2 - 128;
+    sunDst.y = height / 4 - 128;
+    sunDst.w = 256;
+    sunDst.h = 256;
+
+    SDL_RenderCopy(renderer, sun, NULL, &sunDst);
     
-    for (int i = 0; i < arrlen(entities); i++) {
-        renderEntity(renderer, entities[i], camx, camy);
-    }
+    float sunCoverage = calculate_sun_coverage(sunDst, width, height);
+    SDL_SetTextureAlphaMod(sunRing, (1 - sunCoverage) * 255);
+    SDL_RenderCopy(renderer, sunRing, NULL, &sunDst);
+    SDL_SetTextureAlphaMod(sunRing, 255);
+
+    world_render(&w, camx, camy, blocks, renderer);
 
     int animId = (int)playerframe;
     int side = playerside;
-
-    world_render(&w, camx, camy, blocks, renderer);
 
     SDL_Rect playerSrc;
     playerSrc.x = animId * 32;
@@ -331,6 +374,10 @@ void game_state_draw(SDL_Renderer* renderer) {
     SDL_RenderCopy(renderer, playerParts[4], &playerSrc, &playerDst);
     SDL_RenderCopy(renderer, hat, &playerSrc, &playerDst);
     SDL_RenderCopy(renderer, playerParts[5], &playerSrc, &playerDst);
+
+    for (int i = 0; i < arrlen(entities); i++) {
+        renderEntity(renderer, entities[i], camx, camy);
+    }
 
     for (int i = 0; i < arrlen(raindrops); i++) {
         struct rain r = raindrops[i];
