@@ -118,6 +118,8 @@ int main(int argc, char* argv[]) {
     uint64_t start = SDL_GetPerformanceCounter();
     uint64_t next = SDL_GetPerformanceCounter();
 
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+
     int i = 0;
     bool keep_window_open = true;
     while(keep_window_open)

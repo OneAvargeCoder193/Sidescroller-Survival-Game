@@ -2,6 +2,7 @@
 #define GAME_STATE_H
 
 #include <SDL2/SDL.h>
+#include "FastNoiseLite.h"
 
 typedef enum entitystate {
     idle,
@@ -24,6 +25,14 @@ extern SDL_Texture* playerParts[6];
 extern SDL_Texture* hat;
 
 extern SDL_Texture* rainTex;
+
+enum weather {
+    weather_clear,
+    weather_raining
+};
+
+extern enum weather weatherState;
+extern float weatherTime;
 
 struct rain {
     float x, y;

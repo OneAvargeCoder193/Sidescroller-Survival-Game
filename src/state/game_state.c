@@ -27,6 +27,9 @@ SDL_Texture* rainTex;
 
 struct rain* raindrops = NULL;
 
+enum weather weatherState;
+float weatherTime;
+
 void game_state_init(void) {
     playerParts[0] = shget(assets.entityTextures, "game:player_backarm");
     playerParts[1] = shget(assets.entityTextures, "game:player_backleg");
@@ -39,6 +42,9 @@ void game_state_init(void) {
     rainTex = shget(assets.particleTextures, "game:rain");
 
     playery = (int)w.heightMap[(int)playerx] + 1;
+
+    weatherState = weather_clear;
+    weatherTime = rand() % 4000 + 800;
 }
 
 void game_state_cleanup(void) {
@@ -247,8 +253,20 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
         }
     }
 
+    weatherTime -= delta;
+    if (weatherTime < 0) {
+        enum weather old = weatherState;
+        
+        weatherState = rand() % 2;
+        while (weatherState == old) {
+            weatherState = rand() % 2;
+        }
+
+        weatherTime = rand() % 4000 + 800;
+    }
+
     // for (int i = 0; i < 1; i++) {
-    if (rand() % 256 < 128) {
+    if (weatherState == weather_raining && rand() % 256 < 128) {
         float xinterp = rand() / (float)RAND_MAX;
 
         int minx = camx - width / 32;
@@ -333,5 +351,10 @@ void game_state_draw(SDL_Renderer* renderer) {
         rect.h = 32;
         
         SDL_RenderCopy(renderer, rainTex, &src, &rect);
+    }
+
+    if (weatherState == weather_raining) {
+        SDL_SetRenderDrawColor(renderer, 64, 64, 64, 64);
+        SDL_RenderFillRect(renderer, NULL);
     }
 }
