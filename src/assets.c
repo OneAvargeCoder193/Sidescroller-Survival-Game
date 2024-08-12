@@ -1,6 +1,7 @@
 #include "assets.h"
 
 #include "world.h"
+#include "block.h"
 #include "entity.h"
 
 #include "stb_ds.h"

@@ -18,6 +18,7 @@
 #include "world.h"
 #include "assets.h"
 #include "entity.h"
+#include "block.h"
 
 #include "state.h"
 

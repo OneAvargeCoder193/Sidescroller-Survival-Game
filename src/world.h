@@ -10,36 +10,10 @@
 #include "assets.h"
 #include "cJSON.h"
 
+#include "block.h"
+
 #define WORLD_WIDTH 2000
 #define WORLD_HEIGHT 500
-
-typedef enum blockshape {
-    shape_solid,
-    shape_edges,
-    shape_log,
-    shape_liquid
-} blockshape;
-
-typedef struct block {
-    SDL_Texture* tex;
-    SDL_Texture* foliage;
-    SDL_Color* colors;
-    int* connects;
-    blockshape shape;
-    bool collision;
-} block;
-
-struct blockhash {
-    const char* key;
-    block value;
-};
-
-extern struct blockhash* blocks;
-
-block create_block(SDL_Texture* tex, SDL_Texture* foliage, bool transparent, blockshape shape);
-void registerBlock(const char* key, const cJSON* json, Assets *assets);
-void registerConnects(const char* key, const cJSON* json);
-void fixConnectConflict(const char* key);
 
 struct ffp {
     int x; int y; int block;

@@ -238,27 +238,29 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
 
     for (int i = 0; i < arrlen(raindrops); ) {
         struct rain* r = &raindrops[i];
-        r->x += 20 * delta;
-        r->y -= 80 * delta;
+        r->frame += delta * 6;
 
-        if (blocks[world_getblock(&w, r->x, r->y)].value.collision) {
+        if (r->frame > 4) {
             arrdel(raindrops, i);
         } else {
             i++;
         }
     }
 
-    for (int i = 0; i < 1; i++) {
+    // for (int i = 0; i < 1; i++) {
+    if (rand() % 256 < 16) {
         float xinterp = rand() / (float)RAND_MAX;
 
-        float offset = velx * (WORLD_HEIGHT - camy + height / 32) / 80;
-
-        int minx = -(WORLD_HEIGHT / 4) - (height / 128) + (camy / 4) - (width / 32) + camx + offset;
-        int maxx = -(WORLD_HEIGHT / 4) + (height / 128) + (camy / 4) + (width / 32) + camx + offset;
+        int minx = camx - width / 32;
+        int maxx = camx + width / 32;
         float x = (maxx - minx) * xinterp + minx;
         float y = WORLD_HEIGHT;
-        arrput(raindrops, ((struct rain){x, y}));
+        while (!blocks[world_getblock(&w, x, y - 1)].value.collision) {
+            y--;
+        }
+        arrput(raindrops, ((struct rain){x, y, 0}));
     }
+    // }
 
     if (left) {
         if (world_getblock(&w, x, y) != shgeti(blocks, "game:wood")) {
@@ -318,12 +320,18 @@ void game_state_draw(SDL_Renderer* renderer) {
         float renx = floorf(r.x * 8) / 8;
         float reny = floorf(r.y * 8) / 8;
 
+        SDL_Rect src;
+        src.x = floorf(r.frame) * 16;
+        src.y = 0;
+        src.w = 16;
+        src.h = 16;
+
         SDL_Rect rect;
         rect.x = (renx - camx) * 16 + width / 2.0 - 16;
-        rect.y = height - (reny - camy) * 16 - height / 2.0 - 16;
+        rect.y = height - (reny - camy) * 16 - height / 2.0 - 32;
         rect.w = 32;
         rect.h = 32;
         
-        SDL_RenderCopy(renderer, rainTex, NULL, &rect);
+        SDL_RenderCopy(renderer, rainTex, &src, &rect);
     }
 }

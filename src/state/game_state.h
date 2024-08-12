@@ -27,6 +27,7 @@ extern SDL_Texture* rainTex;
 
 struct rain {
     float x, y;
+    float frame;
 };
 
 extern struct rain* raindrops;
