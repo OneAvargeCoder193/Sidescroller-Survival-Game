@@ -28,6 +28,8 @@ SDL_Texture* rainTex;
 SDL_Texture* sun;
 SDL_Texture* sunRing;
 
+Mix_Music* music = NULL;
+
 struct rain* raindrops = NULL;
 
 enum weather weatherState;
@@ -51,10 +53,13 @@ void game_state_init(void) {
 
     weatherState = weather_clear;
     weatherTime = rand() % 4000 + 800;
+
+    music = Mix_LoadMUS("assets/music/Will of Iron (Sibrix' theme) - Vacant Space OST.ogg");
 }
 
 void game_state_cleanup(void) {
     arrfree(raindrops);
+    Mix_FreeMusic(music);
 }
 
 void game_state_handle_events(SDL_Event e) {
@@ -123,6 +128,11 @@ int move_player(float dx, float dy, int* grounded) {
 }
 
 void game_state_update(SDL_Renderer* renderer, float delta) {
+    if (Mix_PlayingMusic() == 0) {
+        Mix_PlayMusic(music, -1);
+        Mix_VolumeMusic(32);
+    }
+
     const uint8_t* keys = SDL_GetKeyboardState(NULL);
 
     int save = (keys[SDL_SCANCODE_LCTRL] || keys[SDL_SCANCODE_RCTRL]) && keys[SDL_SCANCODE_S];
@@ -346,7 +356,8 @@ void game_state_draw(SDL_Renderer* renderer) {
     SDL_RenderCopy(renderer, sun, NULL, &sunDst);
     
     float sunCoverage = calculate_sun_coverage(sunDst, width, height);
-    SDL_SetTextureAlphaMod(sunRing, (1 - sunCoverage) * 255);
+    sunCoverage = sqrtf(1 - sunCoverage);
+    SDL_SetTextureAlphaMod(sunRing, sunCoverage * 255);
     SDL_RenderCopy(renderer, sunRing, NULL, &sunDst);
     SDL_SetTextureAlphaMod(sunRing, 255);
 

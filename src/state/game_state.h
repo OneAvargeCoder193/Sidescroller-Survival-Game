@@ -2,6 +2,7 @@
 #define GAME_STATE_H
 
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_mixer.h>
 #include "FastNoiseLite.h"
 
 typedef enum entitystate {
@@ -28,6 +29,8 @@ extern SDL_Texture* rainTex;
 
 extern SDL_Texture* sun;
 extern SDL_Texture* sunRing;
+
+extern Mix_Music* music;
 
 enum weather {
     weather_clear,

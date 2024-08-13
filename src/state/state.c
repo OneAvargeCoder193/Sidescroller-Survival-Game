@@ -1,6 +1,8 @@
 #include "state.h"
 #include <stdio.h>
 
+#include <SDL2/SDL_mixer.h>
+
 state_type state = STATE_MENU;
 
 // Forward declarations of state functions
@@ -57,6 +59,8 @@ void state_cleanup(void) {
 void state_set(state_type new_state) {
     // Clean up current state
     state_cleanup();
+
+    Mix_HaltMusic();
 
     // Initialize new state
     state = new_state;

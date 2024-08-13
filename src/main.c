@@ -28,7 +28,6 @@ SDL_Texture* loadTexture(const char* path) {
     return IMG_LoadTexture(renderer, path);
 }
 
-Mix_Music* music = NULL;
 Mix_Chunk* test = NULL;
 
 int main(int argc, char* argv[]) {
@@ -85,7 +84,6 @@ int main(int argc, char* argv[]) {
     }
 
     test = Mix_LoadWAV("assets/sfx/test.wav");
-    music = Mix_LoadMUS("assets/music/Will of Iron (Sibrix' theme) - Vacant Space OST.ogg");
     
     state = STATE_MENU;
     state_init();
@@ -160,11 +158,6 @@ int main(int argc, char* argv[]) {
         double delta = (double)(next - start) / SDL_GetPerformanceFrequency();
         double fps = 1 / delta;
 
-        if (Mix_PlayingMusic() == 0) {
-            Mix_PlayMusic(music, -1);
-            Mix_VolumeMusic(32);
-        }
-
         if (fps < 144) {
             SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
             SDL_RenderClear(renderer);
@@ -198,7 +191,6 @@ int main(int argc, char* argv[]) {
 
     TTF_CloseFont(font);
     
-    Mix_FreeMusic(music);
     Mix_FreeChunk(test);
 
     for (int i = 0; i < arrlen(entities); i++) {
