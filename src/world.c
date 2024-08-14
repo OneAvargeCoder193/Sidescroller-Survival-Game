@@ -58,6 +58,7 @@ world world_init(struct blockhash* blocks) {
     w.blocks = world_blocks;
     w.heightMap = world_heightmap;
     w.genIdx = 0;
+    w.genMax = WORLD_WIDTH * WORLD_HEIGHT;
     w.finishedGen = false;
     w.finishedGenData = false;
     w.fillWaterPos = NULL;
@@ -92,10 +93,11 @@ void world_genblock(world* w) {
 
     w->genIdx++;
 
-    if (i == WORLD_WIDTH * WORLD_HEIGHT - 1) {
+    if (i == w->genMax - 1) {
         w->finishedGen = true;
         w->genIdx = 0;
-        w->generateState = genLiquids;
+        w->genMax = WORLD_WIDTH * WORLD_HEIGHT;
+        w->generateState = genPlaceLava;
         return;
     }
 
@@ -120,7 +122,6 @@ void world_genblock(world* w) {
         }
         if (strcmp(block, "game:air") == 0 && y == WORLD_HEIGHT / 2) {
             arrput(w->fillWaterPos, ((struct ffp){x, y, shgeti(blocks, "game:water")}));
-            arrput(w->waterpos, ((struct ffp){x, y, shgeti(blocks, "game:water")}));
         }
         
         int caveMask = fnlGetNoise2D(&w->n, x - 2939, y + 2929) < -0.2;
@@ -155,89 +156,117 @@ void world_genblock(world* w) {
     }
 }
 
-void world_fillliquids(world* w) {
-    while (arrlen(w->fillWaterPos) != 0) {
-        struct ffp p = arrpop(w->fillWaterPos);
-        int x = p.x;
-        int y = p.y;
+void world_placelava(world* w) {
+    int i = w->genIdx;
 
-        if (world_getblock(w, x + 1, y) == 0 && !contains(w->waterpos, x + 1, y, p.block)) {
-            arrput(w->fillWaterPos, ((struct ffp){x + 1, y, p.block}));
-            arrput(w->waterpos, ((struct ffp){x + 1, y, p.block}));
-        }
+    w->genIdx++;
 
-        if (world_getblock(w, x - 1, y) == 0 && !contains(w->waterpos, x - 1, y, p.block)) {
-            arrput(w->fillWaterPos, ((struct ffp){x - 1, y, p.block}));
-            arrput(w->waterpos, ((struct ffp){x - 1, y, p.block}));
-        }
-        if (world_getblock(w, x, y - 1) == 0 && !contains(w->waterpos, x, y - 1, p.block)) {
-            arrput(w->fillWaterPos, ((struct ffp){x, y - 1, p.block}));
-            arrput(w->waterpos, ((struct ffp){x, y - 1, p.block}));
-        }
+    if (i == w->genMax - 1) {
+        w->finishedGen = true;
+        w->genIdx = 0;
+        w->genMax = 1;
+        w->generateState = genLiquids;
+        return;
     }
-    
-    arrfree(w->fillWaterPos);
 
-    for (int x = 0; x < WORLD_WIDTH; x++) {
-        for (int y = 0; y < WORLD_HEIGHT / 2; y++) {
-            if (w->blocks[x][y] == 0 && y < w->heightMap[x] && !contains(w->waterpos, x, y, shgeti(blocks, "game:water"))) {
-                float chance = 2 * (WORLD_HEIGHT - y) / (float)WORLD_HEIGHT - 1;
-                chance *= 0.02;
-                if ((murmur_hash_combine(x, y) & 0xff) / 255.0 < chance) {
-                    struct ffp* points = floodfill(w, x, y, shgeti(blocks, "game:lava"));
-                    int miny = WORLD_HEIGHT;
-                    int minx = 0;
-                    for (int i = 0; i < arrlen(points); i++) {
-                        if (points[i].y < miny) {
-                            miny = points[i].y;
-                            minx = points[i].x;
-                        }
-                    }
+    int x = i % WORLD_WIDTH;
+    int y = i / WORLD_WIDTH;
 
-                    arrfree(points);
-
-                    struct ffp* bs = floodfill(w, minx, miny + 4, shgeti(blocks, "game:lava"));
-                    for (int i = 0; i < arrlen(bs); i++) {
-                        w->blocks[bs[i].x][bs[i].y] = bs[i].block;
-                    }
-                    arrfree(bs);
+    if (w->blocks[x][y] == 0 && y < w->heightMap[x] && !contains(w->waterpos, x, y, shgeti(blocks, "game:water"))) {
+        float chance = 2 * (WORLD_HEIGHT - y) / (float)WORLD_HEIGHT - 1;
+        chance *= 0.02;
+        
+        if ((murmur_hash_combine(x, y) & 0xff) / 255.0 < chance) {
+            struct ffp* points = floodfill(w, x, y, shgeti(blocks, "game:lava"));
+            
+            int miny = WORLD_HEIGHT;
+            int minx = 0;
+            
+            for (int i = 0; i < arrlen(points); i++) {
+                if (points[i].y < miny) {
+                    miny = points[i].y;
+                    minx = points[i].x;
                 }
             }
+
+            arrfree(points);
+
+            arrput(w->fillWaterPos, ((struct ffp){minx, miny + 4, shgeti(blocks, "game:lava")}));
         }
+    }
+}
+
+void world_fillliquids(world* w) {
+    int i = w->genIdx;
+
+    w->genIdx++;
+
+    if (arrlen(w->fillWaterPos) == 0) {
+        w->finishedGen = true;
+        w->genIdx = 0;
+        w->genMax = WORLD_WIDTH;
+        w->generateState = genVegetation;
+        arrfree(w->fillWaterPos);
+        return;
+    }
+    
+    struct ffp p = arrpop(w->fillWaterPos);
+    w->genMax--;
+
+    int x = p.x;
+    int y = p.y;
+    int bl = p.block;
+
+    w->blocks[x][y] = bl;
+    int b = world_getblock(w, x, y - 1);
+    if (bl == shgeti(blocks, "game:water") && b == shgeti(blocks, "game:lava")) {
+        w->blocks[x][y] = shgeti(blocks, "game:obsidian");
     }
 
-    for (int i = 0; i < arrlen(w->waterpos); i++) {
-        if (world_getblock(w, w->waterpos[i].x, w->waterpos[i].y) == 0) {
-            w->blocks[w->waterpos[i].x][w->waterpos[i].y] = w->waterpos[i].block;
-            if (world_getblock(w, w->waterpos[i].x, w->waterpos[i].y - 1) == shgeti(blocks, "game:lava")) {
-                w->blocks[w->waterpos[i].x][w->waterpos[i].y] = shgeti(blocks, "game:obsidian");
-            }
-        }
+    if (world_getblock(w, x + 1, y) == 0 && !contains(w->waterpos, x + 1, y, p.block)) {
+        arrput(w->fillWaterPos, ((struct ffp){x + 1, y, p.block}));
+        w->genMax++;
     }
-    arrfree(w->waterpos);
-    
-    w->generateState = genVegetation;
+
+    if (world_getblock(w, x - 1, y) == 0 && !contains(w->waterpos, x - 1, y, p.block)) {
+        arrput(w->fillWaterPos, ((struct ffp){x - 1, y, p.block}));
+        w->genMax++;
+    }
+
+    if (world_getblock(w, x, y - 1) == 0 && !contains(w->waterpos, x, y - 1, p.block)) {
+        arrput(w->fillWaterPos, ((struct ffp){x, y - 1, p.block}));
+        w->genMax++;
+    }
 }
 
 void world_addvegetation(world* w) {
-    for (int x = 0; x < WORLD_WIDTH; x++) {
-        int y = w->heightMap[x];
-        int c = murmur_hash_combine(x, y) % 256;
-        
-        if (world_getblock(w, x, y) != shgeti(blocks, "game:grass"))
-            continue;
-        
-        if (c < 16) {
-            world_setblock(w, x, y + 1, shgeti(blocks, "game:stump"));
+    int x = w->genIdx;
 
-            int height = murmur_hash_combine(x, y + 4593) % 6 + 6;
-            for (int i = 0; i < height; i++) {
-                world_setblock(w, x, y + i + 2, shgeti(blocks, "game:log"));
-            }
-        }
+    w->genIdx++;
+
+    if (x == w->genMax - 1) {
+        w->finishedGen = true;
+        w->genIdx = 0;
+        w->genMax = WORLD_WIDTH * WORLD_HEIGHT;
+        w->generateState = genData;
+        arrfree(w->fillWaterPos);
+        return;
     }
 
-    w->generateState = genData;
+    int y = w->heightMap[x];
+    int c = murmur_hash_combine(x, y) % 256;
+    
+    if (world_getblock(w, x, y) != shgeti(blocks, "game:grass"))
+        return;
+    
+    if (c < 16) {
+        world_setblock(w, x, y + 1, shgeti(blocks, "game:stump"));
+
+        int height = murmur_hash_combine(x, y + 4593) % 6 + 6;
+        for (int i = 0; i < height; i++) {
+            world_setblock(w, x, y + i + 2, shgeti(blocks, "game:log"));
+        }
+    }
 }
 
 void world_updatedata(world* w, int x, int y) {
@@ -913,7 +942,7 @@ void world_load(world* w, FILE* in) {
     hmfree(loadblocks);
 }
 
-void save_world_to_png(world* w, SDL_Renderer* renderer) {
+void save_world_to_png(world* w, SDL_Renderer* renderer, char* out) {
     SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, WORLD_WIDTH, WORLD_HEIGHT, 32, SDL_PIXELFORMAT_RGBA32);
     SDL_LockSurface(surface);
 
@@ -936,73 +965,5 @@ void save_world_to_png(world* w, SDL_Renderer* renderer) {
     }
 
     SDL_UnlockSurface(surface);
-    IMG_SavePNG(surface, "world.png");
-    // // This would be way simpler if there wasnt a bug that forced me to stich together 16384x16384 images
-    // int numX = ceil((WORLD_WIDTH * 16) / 16384.0);
-    // int numY = ceil((WORLD_HEIGHT * 16) / 16384.0);
-
-    // mkdir("world_pic");
-
-    // struct img* images = NULL;
-
-    // for (int x = 0; x < numX; x++) {
-    //     for (int y = 0; y < numY; y++) {
-    //         int width = min(WORLD_WIDTH * 16 - x * 16384, 16384);
-    //         int height = min(WORLD_HEIGHT * 16 - y * 16384, 16384);
-            
-    //         int blockwidth = min(WORLD_WIDTH - x * 1024, 1024);
-    //         int blockheight = min(WORLD_HEIGHT - y * 1024, 1024);
-            
-    //         SDL_Texture *sshot = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_TARGET, width, height);
-    //         SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormat(0, width, height, 32, SDL_PIXELFORMAT_RGBA32);
-            
-    //         SDL_SetRenderTarget(renderer, sshot);
-    //         world_render_range(w, x * 1024 - 1, x * 1024 + blockwidth + 1, y * 1024 - 1, y * 1024 + blockheight + 1, x * 1024 + blockwidth / 2, y * 1024 + blockheight / 2, blocks, renderer);
-    //         SDL_RenderReadPixels(renderer, NULL, SDL_PIXELFORMAT_RGBA32, surface->pixels, surface->pitch);
-    //         SDL_SetRenderTarget(renderer, NULL);
-
-    //         char* filename = malloc(256);
-    //         snprintf(filename, 256, "world_pic/world_%d_%d.png", x, y);
-    //         IMG_SavePNG(surface, filename);
-
-    //         arrput(images, ((struct img){x, y, filename}));
-
-    //         SDL_FreeSurface(surface);
-    //         SDL_DestroyTexture(sshot);
-    //     }
-    // }
-
-    // png_byte bit_depth;
-    // png_byte color_type;
-    // png_bytepp row_pointers;
-
-    // png_byte** out = (png_byte**)malloc((WORLD_HEIGHT * 16) * sizeof(png_byte*));
-    // for (int y = 0; y < WORLD_HEIGHT * 16; y++) {
-    //     out[y] = malloc(WORLD_WIDTH * 16 * 4);
-    //     memset(out[y], 255, WORLD_WIDTH * 16 * 4);
-    // }
-
-    // for (int i = 0; i < arrlen(images); i++) {
-    //     int width, height;
-    //     read_png_file(images[i].path, &width, &height, &row_pointers, &bit_depth, &color_type);
-    //     for (int y = 0; y < height; y++) {
-    //         memcpy(out[images[i].y * 16384 + y] + images[i].x * 16384 * 4, row_pointers[y], width * 4);
-    //     }
-    // }
-
-    // write_png_file("world.png", WORLD_WIDTH * 16, WORLD_HEIGHT * 16, bit_depth, color_type, out);
-
-    // for (int y = 0; y < WORLD_HEIGHT * 16; ++y) {
-    //     free(out[y]);
-    // }
-    // free(out);
-
-    // for (int i = 0; i < arrlen(images); i++) {
-        // remove(images[i].path);
-    //     free(images[i].path);
-    // }
-
-    // rmdir("world_pic");
-
-    // arrfree(images);
+    IMG_SavePNG(surface, out);
 }

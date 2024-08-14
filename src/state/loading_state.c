@@ -27,6 +27,9 @@ void loading_state_update(SDL_Renderer* renderer, float delta) {
             case genBlocks:
                 world_genblock(&w);
                 break;
+            case genPlaceLava:
+                world_placelava(&w);
+                break;
             case genLiquids:
                 world_fillliquids(&w);
                 break;
@@ -72,4 +75,28 @@ void loading_state_draw(SDL_Renderer* renderer) {
     progressRect.w = 390 * (float)w.genIdx / (WORLD_WIDTH * WORLD_HEIGHT);
     progressRect.h = 40;
     SDL_RenderFillRect(renderer, &progressRect);
+
+    char* text = "";
+    switch (w.generateState) {
+    case genBlocks:
+        text = "Generating World Shape";
+        break;
+    case genPlaceLava:
+        text = "Placing Lava";
+        break;
+    case genLiquids:
+        text = "Filling Liquids";
+        break;
+    case genVegetation:
+        text = "Adding Vegetation";
+        break;
+    case genData:
+        text = "Finishing up";
+        break;
+    case genDone:
+        text = "Done";
+        break;
+    }
+
+    render_text(renderer, width / 2, height / 2 - 40, text, 48, (SDL_Color){255, 255, 255}, font, XALIGN_CENTER, YALIGN_CENTER);
 }
