@@ -3,6 +3,8 @@
 
 #include <SDL2/SDL.h>
 
+extern int numPerFrame;
+
 void loading_state_init(void);
 void loading_state_cleanup(void);
 void loading_state_handle_events(SDL_Event e);

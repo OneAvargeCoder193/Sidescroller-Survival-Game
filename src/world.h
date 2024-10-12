@@ -30,10 +30,11 @@ enum worldstate {
 };
 
 extern uint32_t world_blocks[WORLD_WIDTH][WORLD_HEIGHT];
-extern uint32_t world_heightmap[WORLD_WIDTH];
+extern float world_heightmap[WORLD_WIDTH];
 
 typedef struct world {
     uint32_t (*blocks)[WORLD_HEIGHT];
+    char path[260];
     float *heightMap;
     int genIdx;
     int genMax;

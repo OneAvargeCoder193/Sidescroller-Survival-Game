@@ -25,6 +25,7 @@ typedef struct {
 
 typedef struct {
     TextureAsset *textures;
+    TextureAsset *uiTextures;
     TextureAsset *blockTextures; // stb_ds hashmap
     TextureAsset *entityTextures; // stb_ds hashmap
     TextureAsset *particleTextures; // stb_ds hashmap

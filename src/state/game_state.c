@@ -137,17 +137,17 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
 
     int save = (keys[SDL_SCANCODE_LCTRL] || keys[SDL_SCANCODE_RCTRL]) && keys[SDL_SCANCODE_S];
     if (save) {
-        FILE* out = fopen("save.bin", "wb");
+        FILE* out = fopen(w.path, "wb");
         world_save(&w, out);
         fclose(out);
     }
 
-    int load = (keys[SDL_SCANCODE_LCTRL] || keys[SDL_SCANCODE_RCTRL]) && keys[SDL_SCANCODE_L];
-    if (load) {
-        FILE* in = fopen("save.bin", "rb");
-        world_load(&w, in);
-        fclose(in);
-    }
+    // int load = (keys[SDL_SCANCODE_LCTRL] || keys[SDL_SCANCODE_RCTRL]) && keys[SDL_SCANCODE_L];
+    // if (load) {
+    //     FILE* in = fopen("save.bin", "rb");
+    //     world_load(&w, in);
+    //     fclose(in);
+    // }
 
     for (int i = 0; i < arrlen(entities); i++) {
         updateEntity(&entities[i], delta);

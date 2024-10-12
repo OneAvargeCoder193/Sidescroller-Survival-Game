@@ -52,9 +52,9 @@ int registerEntityType(const char* key, const cJSON* json, Assets *assets) {
         
         cJSON* ac = cJSON_GetObjectItemCaseSensitive(c, "actions");
         action act;
-        act.animation = cJSON_GetObjectItemCaseSensitive(ac, "animation");
-        act.initial_state = cJSON_GetObjectItemCaseSensitive(ac, "initial_state");
-        act.final_state = cJSON_GetObjectItemCaseSensitive(ac, "final_state");
+        act.animation = cJSON_GetObjectItemCaseSensitive(ac, "animation")->valuestring;
+        act.initial_state = cJSON_GetObjectItemCaseSensitive(ac, "initial_state")->valuestring;
+        act.final_state = cJSON_GetObjectItemCaseSensitive(ac, "final_state")->valuestring;
 
         component c;
         c.trigger = trig;

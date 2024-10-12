@@ -141,7 +141,7 @@ int main(int argc, char* argv[]) {
                     } else if (e.key.keysym.sym == SDLK_F3) {
                         save_world_to_png(&w, renderer, "world.png");
                     } else if (e.key.keysym.sym == SDLK_h) {
-                        Mix_PlayChannel(-1, test, 0);
+                        // Mix_PlayChannel(-1, test, 0);
                     }
                     break;
                 case SDL_MOUSEBUTTONUP:

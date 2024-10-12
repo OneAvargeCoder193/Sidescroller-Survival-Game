@@ -5,7 +5,9 @@
 
 typedef enum {
     STATE_MENU,
+    STATE_WORLD_SELECT,
     STATE_LOADING,
+    STATE_CREDITS,
     STATE_GAME
 } state_type;
 

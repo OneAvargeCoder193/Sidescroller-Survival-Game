@@ -5,9 +5,9 @@
 #include "stb_ds.h"
 
 uint32_t world_blocks[WORLD_WIDTH][WORLD_HEIGHT];
-uint32_t world_heightmap[WORLD_WIDTH];
+float world_heightmap[WORLD_WIDTH];
 
-world w = {NULL, NULL, 0, 0, 0, NULL, NULL, {0}, {0}, genEmpty};
+world w = {NULL, {0}, NULL, 0, 0, 0, NULL, NULL, {0}, {0}, genEmpty};
 
 int connectBlock(int a, int b) {
     return blocks[a].value.connects[b];
@@ -77,6 +77,14 @@ world world_init(struct blockhash* blocks) {
     w.rock.noise_type = FNL_NOISE_CELLULAR;
     w.rock.cellular_distance_func = FNL_CELLULAR_DISTANCE_EUCLIDEAN;
 
+    // for (int x = 0; x < WORLD_WIDTH; x++) {
+    //     float off = -expf(-x / 300.0) * 300;
+    //     off -= expf(-(WORLD_WIDTH - x) / 300.0) * 300;
+    //     float scale = 1 - expf(-x / 300.0);
+    //     scale *= 1 - expf(-(WORLD_WIDTH - x) / 300.0);
+    //     w.heightMap[x] = fnlGetNoise2D(&w.n, x / 2.0, 0) * scale * 30 + off + WORLD_HEIGHT / 2 + 10;
+    // }
+    
     for (int x = 0; x < WORLD_WIDTH; x++) {
         float off = -expf(-x / 50.0) * 50;
         off -= expf(-(WORLD_WIDTH - x) / 50.0) * 50;
@@ -104,56 +112,61 @@ void world_genblock(world* w) {
     int x = i % WORLD_WIDTH;
     int y = i / WORLD_WIDTH;
 
-    if (i < WORLD_WIDTH * WORLD_HEIGHT) {
-        float height = w->heightMap[x];
-        const char* block = "game:air";
-        if (y < height) {
-            if (y >= WORLD_HEIGHT / 2) {
-                block = "game:grass";
-            } else {
-                block = "game:dirt";
-            }
-        }
-        if (y < height - 3) {
+    // double start = SDL_GetPerformanceCounter() / (double)SDL_GetPerformanceFrequency();
+
+    float height = w->heightMap[x];
+    const char* block = "game:air";
+    if (y < height) {
+        if (y >= WORLD_HEIGHT / 2) {
+            block = "game:grass";
+        } else {
             block = "game:dirt";
         }
-        if (y < height - 50) {
+    }
+    if (y < height - 3) {
+        block = "game:dirt";
+    }
+    // if (y < height - (fnlGetNoise2D(&w->n, x, y) / 2 + 0.5) * 20 + 30) {
+    //     block = "game:stone";
+    // }
+    if (strcmp(block, "game:air") == 0 && y == WORLD_HEIGHT / 2) {
+        arrput(w->fillWaterPos, ((struct ffp){x, y, shgeti(blocks, "game:water")}));
+    }
+    
+    int caveMask = fnlGetNoise2D(&w->n, x - 2939, y + 2929) < -0.2;
+    int thickCave = fabsf(fnlGetNoise2D(&w->n, x, y)) * fabsf(fnlGetNoise2D(&w->n, x + 5399, y + 3494)) < 0.04;
+    int thinCave = fabsf(fnlGetNoise2D(&w->n, x, y)) < 0.1 && fabsf(fnlGetNoise2D(&w->n, x + 5399, y + 3494)) < 0.1;
+    if (caveMask?thickCave:thinCave) {
+        block = "game:air";
+    }
+    
+    if (strcmp(block, "game:dirt") == 0) {
+        int nx = x + fnlGetNoise2D(&w->n, x - 2283, y - 9872) * 50;
+        int ny = y + fnlGetNoise2D(&w->n, x + 3939, y + 2939) * 50;
+        if (fnlGetNoise2D(&w->rock, nx, ny) < -0.5 && y < height - 7) {
             block = "game:stone";
         }
-        if (strcmp(block, "game:air") == 0 && y == WORLD_HEIGHT / 2) {
-            arrput(w->fillWaterPos, ((struct ffp){x, y, shgeti(blocks, "game:water")}));
-        }
-        
-        int caveMask = fnlGetNoise2D(&w->n, x - 2939, y + 2929) < -0.2;
-        int thickCave = fabsf(fnlGetNoise2D(&w->n, x, y)) * fabsf(fnlGetNoise2D(&w->n, x + 5399, y + 3494)) < 0.04;
-        int thinCave = fabsf(fnlGetNoise2D(&w->n, x, y)) < 0.1 && fabsf(fnlGetNoise2D(&w->n, x + 5399, y + 3494)) < 0.1;
-        if (caveMask?thickCave:thinCave) {
-            block = "game:air";
-        }
-        
-        if (strcmp(block, "game:dirt") == 0) {
-            int nx = x + fnlGetNoise2D(&w->n, x - 2283, y - 9872) * 50;
-            int ny = y + fnlGetNoise2D(&w->n, x + 3939, y + 2939) * 50;
-            if (fnlGetNoise2D(&w->rock, nx, ny) < -0.5 && y < height - 7) {
-                block = "game:stone";
-            }
-        }
-
-        if (strcmp(block, "game:stone") == 0) {
-            int nx = x + fnlGetNoise2D(&w->n, x - 2283, y - 9872) * 10;
-            int ny = y + fnlGetNoise2D(&w->n, x + 3939, y + 2939) * 10;
-            if (fnlGetNoise2D(&w->rock, nx - 2939, ny + 9593) < -0.9) {
-                block = "game:copper_ore";
-            }
-            if (fnlGetNoise2D(&w->rock, nx + 39032, ny - 2939) < -0.9) {
-                block = "game:tin_ore";
-            }
-            if (fnlGetNoise2D(&w->rock, nx - 2939, ny + 69303) < -0.9) {
-                block = "game:coal_ore";
-            }
-        }
-        w->blocks[x][y] = shgeti(blocks, block);
     }
+
+    if (strcmp(block, "game:stone") == 0) {
+        int nx = x + fnlGetNoise2D(&w->n, x - 2283, y - 9872) * 10;
+        int ny = y + fnlGetNoise2D(&w->n, x + 3939, y + 2939) * 10;
+        if (fnlGetNoise2D(&w->rock, nx - 2939, ny + 9593) < -0.9) {
+            block = "game:copper_ore";
+        }
+        if (fnlGetNoise2D(&w->rock, nx + 39032, ny - 2939) < -0.9) {
+            block = "game:tin_ore";
+        }
+        if (fnlGetNoise2D(&w->rock, nx - 2939, ny + 69303) < -0.9) {
+            block = "game:coal_ore";
+        }
+    }
+
+    w->blocks[x][y] = shgeti(blocks, block);
+    
+    // double end = SDL_GetPerformanceCounter() / (double)SDL_GetPerformanceFrequency();
+
+    // printf("%f\n", end - start);
 }
 
 void world_placelava(world* w) {

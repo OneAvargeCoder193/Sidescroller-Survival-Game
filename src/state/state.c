@@ -12,11 +12,23 @@ void menu_state_handle_events(SDL_Event e);
 void menu_state_update(SDL_Renderer* renderer, float delta);
 void menu_state_draw(SDL_Renderer* renderer);
 
+void world_select_state_init(void);
+void world_select_state_cleanup(void);
+void world_select_state_handle_events(SDL_Event e);
+void world_select_state_update(SDL_Renderer* renderer, float delta);
+void world_select_state_draw(SDL_Renderer* renderer);
+
 void loading_state_init(void);
 void loading_state_cleanup(void);
 void loading_state_handle_events(SDL_Event e);
 void loading_state_update(SDL_Renderer* renderer, float delta);
 void loading_state_draw(SDL_Renderer* renderer);
+
+void credits_state_init(void);
+void credits_state_cleanup(void);
+void credits_state_handle_events(SDL_Event e);
+void credits_state_update(SDL_Renderer* renderer, float delta);
+void credits_state_draw(SDL_Renderer* renderer);
 
 void game_state_init(void);
 void game_state_cleanup(void);
@@ -29,8 +41,14 @@ void state_init(void) {
         case STATE_MENU:
             menu_state_init();
             break;
+        case STATE_WORLD_SELECT:
+            world_select_state_init();
+            break;
         case STATE_LOADING:
             loading_state_init();
+            break;
+        case STATE_CREDITS:
+            credits_state_init();
             break;
         case STATE_GAME:
             game_state_init();
@@ -45,8 +63,14 @@ void state_cleanup(void) {
         case STATE_MENU:
             menu_state_cleanup();
             break;
+        case STATE_WORLD_SELECT:
+            world_select_state_cleanup();
+            break;
         case STATE_LOADING:
             loading_state_cleanup();
+            break;
+        case STATE_CREDITS:
+            credits_state_cleanup();
             break;
         case STATE_GAME:
             game_state_cleanup();
@@ -72,8 +96,14 @@ void state_handle_events(SDL_Event e) {
         case STATE_MENU:
             menu_state_handle_events(e);
             break;
+        case STATE_WORLD_SELECT:
+            world_select_state_handle_events(e);
+            break;
         case STATE_LOADING:
             loading_state_handle_events(e);
+            break;
+        case STATE_CREDITS:
+            credits_state_handle_events(e);
             break;
         case STATE_GAME:
             game_state_handle_events(e);
@@ -88,8 +118,14 @@ void state_update(SDL_Renderer* renderer, float delta) {
         case STATE_MENU:
             menu_state_update(renderer, delta);
             break;
+        case STATE_WORLD_SELECT:
+            world_select_state_update(renderer, delta);
+            break;
         case STATE_LOADING:
             loading_state_update(renderer, delta);
+            break;
+        case STATE_CREDITS:
+            credits_state_update(renderer, delta);
             break;
         case STATE_GAME:
             game_state_update(renderer, delta);
@@ -104,8 +140,14 @@ void state_draw(SDL_Renderer* renderer) {
         case STATE_MENU:
             menu_state_draw(renderer);
             break;
+        case STATE_WORLD_SELECT:
+            world_select_state_draw(renderer);
+            break;
         case STATE_LOADING:
             loading_state_draw(renderer);
+            break;
+        case STATE_CREDITS:
+            credits_state_draw(renderer);
             break;
         case STATE_GAME:
             game_state_draw(renderer);

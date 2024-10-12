@@ -27,10 +27,14 @@ void menu_state_draw(SDL_Renderer* renderer) {
 
     render_text(renderer, width / 2, 24, "-Game Title-", 48, (SDL_Color){255, 255, 255, 255}, font, XALIGN_CENTER, YALIGN_BOTTOM);
     
-    if (render_button(renderer, 24, height - 152 - 24, "Singleplayer", 48, (SDL_Color){255, 255, 255, 255}, font, XALIGN_LEFT, YALIGN_CENTER)) {
-        state_set(STATE_LOADING);
+    if (render_button(renderer, 24, height - 216 - 24, "Singleplayer", 48, (SDL_Color){255, 255, 255, 255}, font, XALIGN_LEFT, YALIGN_CENTER)) {
+        state_set(STATE_WORLD_SELECT);
     }
 
-    render_button(renderer, 24, height - 88 - 24, "Multiplayer", 48, (SDL_Color){255, 255, 255, 255}, font, XALIGN_LEFT, YALIGN_CENTER);
-    render_button(renderer, 24, height - 24 - 24, "Settings", 48, (SDL_Color){255, 255, 255, 255}, font, XALIGN_LEFT, YALIGN_CENTER);
+    render_button(renderer, 24, height - 152 - 24, "Multiplayer", 48, (SDL_Color){255, 255, 255, 255}, font, XALIGN_LEFT, YALIGN_CENTER);
+    render_button(renderer, 24, height - 88 - 24, "Settings", 48, (SDL_Color){255, 255, 255, 255}, font, XALIGN_LEFT, YALIGN_CENTER);
+    
+    if (render_button(renderer, 24, height - 24 - 24, "Credits", 48, (SDL_Color){255, 255, 255, 255}, font, XALIGN_LEFT, YALIGN_CENTER)) {
+        state_set(STATE_CREDITS);
+    }
 }

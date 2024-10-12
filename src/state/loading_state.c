@@ -4,8 +4,10 @@
 #include "state.h"
 #include "world.h"
 
+int numPerFrame;
+
 void loading_state_init(void) {
-    
+    numPerFrame = 1000;
 }
 
 void loading_state_cleanup(void) {
@@ -17,12 +19,18 @@ void loading_state_handle_events(SDL_Event e) {
 }
 
 void loading_state_update(SDL_Renderer* renderer, float delta) {
+    if (delta > 1 / 140.0) {
+        numPerFrame--;
+    } else {
+        numPerFrame++;
+    }
+
     if (w.generateState == genEmpty) {
         w = world_init(blocks);
     }
     if (w.generateState != genDone) {
         // Automatically calculate how many steps to do in one frame based on deltatime
-        for (int i = 0; i < 6 / delta; i++) { // Magic number (7 is close to 1000 / 144 (6.94444...) which is the target fps but i use 6 because it is more stable)
+        for (int i = 0; i < numPerFrame; i++) {
             switch (w.generateState) {
             case genBlocks:
                 world_genblock(&w);
