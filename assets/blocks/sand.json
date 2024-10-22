@@ -1,0 +1,8 @@
+{
+    "shape": "edges",
+    "texture": "game:sand",
+    "foliage": "game:sand_foliage",
+    "connects": ["game:grass", "game:dirt", "game:wood"],
+    "color": ["#A4764A", "#9B7653", "#94765a", "#765f48"],
+    "collision": true
+}
