@@ -1,0 +1,1 @@
+I plan on having these songs re-done by someone. I am good at composing, not so much at making the song.
