@@ -298,12 +298,12 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
 
     if (left) {
         if (world_getblock(&w, x, y) != shgeti(blocks, "game:wood")) {
-            world_setblockdata(&w, x, y, shgeti(blocks, "game:wood"));
+            world_setblockanddata(&w, x, y, shgeti(blocks, "game:wood"));
             world_gendatarange(&w, x - 1, y - 1, x + 2, y + 2);
         }
     } else if (right) {
         if (world_getblock(&w, x, y) != shgeti(blocks, "game:air")) {
-            world_setblockdata(&w, x, y, shgeti(blocks, "game:air"));
+            world_setblockanddata(&w, x, y, shgeti(blocks, "game:air"));
             world_gendatarange(&w, x - 1, y - 1, x + 2, y + 2);
         }
     }

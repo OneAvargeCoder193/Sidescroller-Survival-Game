@@ -4,7 +4,7 @@
 
 #include "stb_ds.h"
 
-uint32_t world_blocks[WORLD_WIDTH][WORLD_HEIGHT];
+uint32_t world_blocks[WORLD_WIDTH][WORLD_HEIGHT][2];
 float world_heightmap[WORLD_WIDTH];
 
 world w = {NULL, {0}, NULL, 0, 0, 0, NULL, NULL, {0}, {0}, genEmpty};
@@ -162,7 +162,14 @@ void world_genblock(world* w) {
         }
     }
 
-    w->blocks[x][y] = shgeti(blocks, block);
+    const char* wall = "game:air";
+
+    if (y < height) {
+        wall = "game:stone_wall";
+    }
+
+    w->blocks[x][y][WORLD_LAYER] = shgeti(blocks, block);
+    w->blocks[x][y][WALL_LAYER] = shgeti(blocks, wall);
     
     // double end = SDL_GetPerformanceCounter() / (double)SDL_GetPerformanceFrequency();
 
@@ -230,10 +237,10 @@ void world_fillliquids(world* w) {
     int y = p.y;
     int bl = p.block;
 
-    w->blocks[x][y] = bl;
+    w->blocks[x][y][WORLD_LAYER] = bl;
     int b = world_getblock(w, x, y - 1);
     if (bl == shgeti(blocks, "game:water") && b == shgeti(blocks, "game:lava")) {
-        w->blocks[x][y] = shgeti(blocks, "game:obsidian");
+        w->blocks[x][y][WORLD_LAYER] = shgeti(blocks, "game:obsidian");
     }
 
     if (world_getblock(w, x + 1, y) == 0 && !contains(w->waterpos, x + 1, y, p.block)) {
@@ -282,20 +289,20 @@ void world_addvegetation(world* w) {
     }
 }
 
-void world_updatedata(world* w, int x, int y) {
+void world_updatedata(world* w, int x, int y, int layer) {
     uint32_t data = 0;
-    int bl = world_getblock(w, x, y);
+    int bl = world_getblocklayer(w, x, y, layer);
     block b = blocks[bl].value;
     blockshape shape = b.shape;
     if (shape == shape_edges) {
-        int top = world_getblock(w, x, y + 1);
-        int bottom = world_getblock(w, x, y - 1);
-        int left = world_getblock(w, x - 1, y);
-        int right = world_getblock(w, x + 1, y);
-        int topleft = world_getblock(w, x - 1, y + 1);
-        int topright = world_getblock(w, x + 1, y + 1);
-        int bottomleft = world_getblock(w, x - 1, y - 1);
-        int bottomright = world_getblock(w, x + 1, y - 1);
+        int top = world_getblocklayer(w, x, y + 1, layer);
+        int bottom = world_getblocklayer(w, x, y - 1, layer);
+        int left = world_getblocklayer(w, x - 1, y, layer);
+        int right = world_getblocklayer(w, x + 1, y, layer);
+        int topleft = world_getblocklayer(w, x - 1, y + 1, layer);
+        int topright = world_getblocklayer(w, x + 1, y + 1, layer);
+        int bottomleft = world_getblocklayer(w, x - 1, y - 1, layer);
+        int bottomright = world_getblocklayer(w, x + 1, y - 1, layer);
         data |= (!connectBlock(bl, top)) << 0;
         data |= (!connectBlock(bl, bottom)) << 1;
         data |= (!connectBlock(bl, left)) << 2;
@@ -313,15 +320,15 @@ void world_updatedata(world* w, int x, int y) {
         data |= (blocks[bottomleft].value.shape != shape_edges) << 14;
         data |= (blocks[bottomright].value.shape != shape_edges) << 15;
     } else if (shape == shape_liquid) {
-        if (blocks[world_getblock(w, x, y + 1)].value.shape != shape_liquid) {
+        if (blocks[world_getblocklayer(w, x, y + 1, layer)].value.shape != shape_liquid) {
             data = 4;
-        } else if (blocks[world_getblock(w, x, y + 2)].value.shape != shape_liquid) {
+        } else if (blocks[world_getblocklayer(w, x, y + 2, layer)].value.shape != shape_liquid) {
             data = 12;
         } else {
             data = 15;
         }
     }
-    world_setdata(w, x, y, data);
+    world_setblockdatalayer(w, x, y, layer, data);
 }
 
 void world_gendata(world* w) {
@@ -339,7 +346,8 @@ void world_gendata(world* w) {
     int x = i % WORLD_WIDTH;
     int y = i / WORLD_WIDTH;
 
-    world_updatedata(w, x, y);
+    world_updatedata(w, x, y, WORLD_LAYER);
+    world_updatedata(w, x, y, WALL_LAYER);
 }
 
 void world_gendatarange(world* w, int minx, int miny, int maxx, int maxy) {
@@ -347,7 +355,8 @@ void world_gendatarange(world* w, int minx, int miny, int maxx, int maxy) {
         for (int x = minx; x < maxx; x++) {
             if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
                 continue;
-            world_updatedata(w, x, y);
+            world_updatedata(w, x, y, WORLD_LAYER);
+            world_updatedata(w, x, y, WALL_LAYER);
         }
     }
 }
@@ -355,37 +364,110 @@ void world_gendatarange(world* w, int minx, int miny, int maxx, int maxy) {
 uint8_t world_getblock(world* w, int x, int y) {
     if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
         return 1;
-    return w->blocks[x][y] & 0xff;
-}
-
-uint32_t world_getdata(world* w, int x, int y) {
-    if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
-        return 0;
-    return w->blocks[x][y] >> 8;
+    return w->blocks[x][y][WORLD_LAYER] & 0xff;
 }
 
 uint32_t world_getblockdata(world* w, int x, int y) {
     if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
+        return 0;
+    return w->blocks[x][y][WORLD_LAYER] >> 8;
+}
+
+uint32_t world_getblockanddata(world* w, int x, int y) {
+    if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
         return 1;
-    return w->blocks[x][y];
+    return w->blocks[x][y][WORLD_LAYER];
+}
+
+uint8_t world_getwall(world* w, int x, int y) {
+    if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
+        return 1;
+    return w->blocks[x][y][WALL_LAYER] & 0xff;
+}
+
+uint32_t world_getwalldata(world* w, int x, int y) {
+    if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
+        return 0;
+    return w->blocks[x][y][WALL_LAYER] >> 8;
+}
+
+uint32_t world_getwallanddata(world* w, int x, int y) {
+    if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
+        return 1;
+    return w->blocks[x][y][WALL_LAYER];
+}
+
+uint8_t world_getblocklayer(world* w, int x, int y, int layer) {
+    if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
+        return 1;
+    return w->blocks[x][y][layer] & 0xff;
+}
+
+uint32_t world_getblockdatalayer(world* w, int x, int y, int layer) {
+    if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
+        return 0;
+    return w->blocks[x][y][layer] >> 8;
+}
+
+uint32_t world_getblockanddatalayer(world* w, int x, int y, int layer) {
+    if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
+        return 1;
+    return w->blocks[x][y][layer];
 }
 
 void world_setblock(world* w, int x, int y, uint8_t v) {
     if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
         return;
-    w->blocks[x][y] = w->blocks[x][y] & ~0xff | v;
-}
-
-void world_setdata(world* w, int x, int y, uint32_t v) {
-    if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
-        return;
-    w->blocks[x][y] = w->blocks[x][y] & 0xff | (v << 8);
+    w->blocks[x][y][WORLD_LAYER] = w->blocks[x][y][WORLD_LAYER] & ~0xff | v;
 }
 
 void world_setblockdata(world* w, int x, int y, uint32_t v) {
     if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
         return;
-    w->blocks[x][y] = v;
+    w->blocks[x][y][WORLD_LAYER] = w->blocks[x][y][WORLD_LAYER] & 0xff | (v << 8);
+}
+
+void world_setblockanddata(world* w, int x, int y, uint32_t v) {
+    if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
+        return;
+    w->blocks[x][y][WORLD_LAYER] = v;
+}
+
+void world_setwall(world* w, int x, int y, uint8_t v) {
+    if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
+        return;
+    w->blocks[x][y][WALL_LAYER] = w->blocks[x][y][WALL_LAYER] & ~0xff | v;
+}
+
+void world_setwalldata(world* w, int x, int y, uint32_t v) {
+    if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
+        return;
+    w->blocks[x][y][WALL_LAYER] = w->blocks[x][y][WALL_LAYER] & 0xff | (v << 8);
+}
+
+void world_setwallanddata(world* w, int x, int y, uint32_t v) {
+    if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
+        return;
+    w->blocks[x][y][WALL_LAYER] = v;
+}
+
+
+void world_setblocklayer(world* w, int x, int y, int layer, uint8_t v) {
+    if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
+        return;
+    w->blocks[x][y][layer] = w->blocks[x][y][layer] & ~0xff | v;
+}
+
+void world_setblockdatalayer(world* w, int x, int y, int layer, uint32_t v) {
+    if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
+        return;
+    w->blocks[x][y][layer] = w->blocks[x][y][layer] & 0xff | (v << 8);
+}
+
+void world_setblockanddatalayer(world* w, int x, int y, int layer, uint32_t v) {
+    if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
+        return;
+    w->blocks[x][y][layer] = v;
 }
 
 void drawBlock(SDL_Renderer* renderer, struct blockhash* blocks, int b, int x, int y, float camx, float camy) {
@@ -747,7 +829,44 @@ void world_render_range(world* w, int minx, int maxx, int miny, int maxy, float 
             if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
                 continue;
 
-            int b = w->blocks[x][y];
+            int b = w->blocks[x][y][WALL_LAYER];
+
+            int block = b & 0xff;
+            if (block == 0)
+                continue;
+            
+            if (w->blocks[x][y][WORLD_LAYER] != 0)
+                continue;
+            
+            drawBlockEdges(renderer, blocks, b, x, y, camx - (float)width / 32, camy - (float)height / 32);
+        }
+    }
+
+    for (int x = minx; x < maxx; x++) {
+        for (int y = miny; y < maxy; y++) {
+            if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
+                continue;
+            
+            int b = w->blocks[x][y][WALL_LAYER];
+            int block = b & 0xff;
+            if (blocks[block].value.foliage == NULL)
+                continue;
+            
+            if (w->blocks[x][y][WORLD_LAYER] != 0)
+                continue;
+            
+            if (blocks[block].value.shape == shape_edges) {
+                drawBlockEdgesFoliage(renderer, blocks, b, x, y, camx - (float)width / 32, camy - (float)height / 32);
+            }
+        }
+    }
+
+    for (int x = minx; x < maxx; x++) {
+        for (int y = miny; y < maxy; y++) {
+            if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
+                continue;
+
+            int b = w->blocks[x][y][WORLD_LAYER];
 
             int block = b & 0xff;
             if (block == 0)
@@ -768,7 +887,7 @@ void world_render_range(world* w, int minx, int maxx, int miny, int maxy, float 
             if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
                 continue;
             
-            int b = w->blocks[x][y];
+            int b = w->blocks[x][y][WORLD_LAYER];
             int block = b & 0xff;
             if (blocks[block].value.foliage == NULL)
                 continue;
@@ -836,11 +955,32 @@ void world_save(world* w, FILE* out) {
         save_number(i, out);
     }
 
-    int last = w->blocks[0][0];
+    int last = w->blocks[0][0][WORLD_LAYER];
     int num = 0;
     for (int y = 0; y < WORLD_HEIGHT; y++) {
         for (int x = 0; x < WORLD_WIDTH; x++) {
-            int block = w->blocks[x][y];
+            int block = w->blocks[x][y][WORLD_LAYER];
+            if (block != last) {
+                save_compressed_number(num, out);
+                save_compressed_number(last, out);
+                
+                num = 0;
+                last = block;
+            }
+
+            num++;
+        }
+    }
+    if (num != 0) {
+        save_compressed_number(num, out);
+        save_compressed_number(last, out);
+    }
+
+    last = w->blocks[0][0][WALL_LAYER];
+    num = 0;
+    for (int y = 0; y < WORLD_HEIGHT; y++) {
+        for (int x = 0; x < WORLD_WIDTH; x++) {
+            int block = w->blocks[x][y][WALL_LAYER];
             if (block != last) {
                 save_compressed_number(num, out);
                 save_compressed_number(last, out);
@@ -942,7 +1082,26 @@ void world_load(world* w, FILE* in) {
             int x = i % WORLD_WIDTH;
             int y = i / WORLD_WIDTH;
 
-            w->blocks[x][y] = block;
+            w->blocks[x][y][WORLD_LAYER] = block;
+
+            i++;
+        }
+    }
+
+    i = 0;
+    while (i < WORLD_WIDTH * WORLD_HEIGHT) {
+        int num = read_compressed_number(in);
+        int b = read_compressed_number(in);
+        int block = b & 0xff;
+        int data = b >> 8;
+        char* key = hmget(loadblocks, block);
+        block = shgeti(blocks, key) | data << 8;
+
+        for (int j = 0; j < num; j++) {
+            int x = i % WORLD_WIDTH;
+            int y = i / WORLD_WIDTH;
+
+            w->blocks[x][y][WALL_LAYER] = block;
 
             i++;
         }
@@ -961,7 +1120,7 @@ void save_world_to_png(world* w, SDL_Renderer* renderer, char* out) {
 
     for (int x = 0; x < WORLD_WIDTH; x++) {
         for (int y = 0; y < WORLD_HEIGHT; y++) {
-            uint32_t b = w->blocks[x][y];
+            uint32_t b = w->blocks[x][y][WORLD_LAYER];
             uint32_t block = b & 0xff;
             
             SDL_Color* colors = blocks[block].value.colors;

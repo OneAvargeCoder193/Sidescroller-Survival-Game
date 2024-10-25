@@ -19,6 +19,7 @@ typedef struct block {
     SDL_Texture* foliage;
     SDL_Color* colors;
     int* connects;
+    int layer;
     blockshape shape;
     bool collision;
 } block;

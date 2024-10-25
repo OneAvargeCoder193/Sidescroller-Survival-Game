@@ -2,6 +2,8 @@
 
 #include "stb_ds.h"
 
+#include "world.h"
+
 struct blockhash* blocks = NULL;
 
 block create_block(SDL_Texture* tex, SDL_Texture* foliage, bool transparent, blockshape shape) {
@@ -9,6 +11,7 @@ block create_block(SDL_Texture* tex, SDL_Texture* foliage, bool transparent, blo
     res.tex = tex;
     res.foliage = foliage;
     res.connects = NULL;
+    res.layer = WORLD_LAYER;
     res.shape = shape;
     res.collision = false;
     res.colors = NULL;
@@ -27,6 +30,14 @@ blockshape string_to_blockshape(const char* str) {
     } else {
         fprintf(stderr, "Invalid blockshape: %s\n", str);
         return -1; // or handle error appropriately
+    }
+}
+
+int string_to_layer(const char* str) {
+    if (strcmp(str, "world") == 0) {
+        return WORLD_LAYER;
+    } else if (strcmp(str, "wall") == 0) {
+        return WALL_LAYER;
     }
 }
 
@@ -55,6 +66,7 @@ void registerBlock(const char* key, const cJSON* json, Assets *assets) {
     cJSON* shapeJson = cJSON_GetObjectItemCaseSensitive(json, "shape");
     cJSON* colorJson = cJSON_GetObjectItemCaseSensitive(json, "color");
     cJSON* collisionJson = cJSON_GetObjectItemCaseSensitive(json, "collision");
+    cJSON* layerJson = cJSON_GetObjectItemCaseSensitive(json, "layer");
 
     SDL_Texture* tex = NULL;
     if (textureJson)
@@ -79,6 +91,10 @@ void registerBlock(const char* key, const cJSON* json, Assets *assets) {
     bool collision = false;
     if (collisionJson)
         collision = collisionJson->valueint;
+    
+    int layer = WORLD_LAYER;
+    if (layerJson)
+        layer = string_to_layer(layerJson->valuestring);
     
     block res;
     res.tex = tex;
