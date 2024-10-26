@@ -19,6 +19,7 @@ int step = 0;
 int playerside = 0;
 int lastGrounded = 0;
 float playerframe = 0;
+float playerGroundTime = 0;
 entitystate playerstate = idle;
 SDL_Texture* playerParts[6];
 SDL_Texture* hat;
@@ -213,18 +214,24 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
     float dy = vely * delta;
     int divisions = ceil(sqrt(dx * dx + dy * dy));
 
+    playerGroundTime += delta;
+
     int grounded = 0;
     for (int i = 0; i < divisions; i++) {
         int g;
         if (move_player(dx / divisions, dy / divisions, &g))
             break;
         grounded = grounded || g;
+        if (g) {
+            playerGroundTime = 0;
+        }
     }
 
-    if (grounded && keys[SDL_SCANCODE_SPACE]) {
+    if (playerGroundTime < 0.05 && keys[SDL_SCANCODE_SPACE]) {
         vely = sqrtf(4 * 2 * 120);
         playerstate = jumping;
         playerframe = 6;
+        playerGroundTime = 1000;
     }
 
     if (!grounded && lastGrounded) {

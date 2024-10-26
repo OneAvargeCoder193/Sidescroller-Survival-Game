@@ -21,6 +21,7 @@ extern float velx;
 extern float vely;
 extern int playerside;
 extern float playerframe;
+extern float playerGroundTime;
 extern entitystate playerstate;
 extern SDL_Texture* playerParts[6];
 extern SDL_Texture* hat;
