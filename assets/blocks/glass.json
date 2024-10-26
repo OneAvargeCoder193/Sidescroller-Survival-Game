@@ -1,0 +1,6 @@
+{
+    "shape": "edges",
+    "texture": "game:glass",
+    "color": ["#FFFFFF"],
+    "collision": true
+}
