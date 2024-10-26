@@ -470,12 +470,9 @@ void world_setblockanddatalayer(world* w, int x, int y, int layer, uint32_t v) {
     w->blocks[x][y][layer] = v;
 }
 
-void drawBlock(SDL_Renderer* renderer, struct blockhash* blocks, int b, int x, int y, float camx, float camy) {
+void drawBasicBlockPos(SDL_Renderer* renderer, struct blockhash* blocks, int b, int bx, int by, int x, int y) {
     int data = b >> 8;
     int block = b & 0xff;
-
-    int width, height;
-    SDL_GetRendererOutputSize(renderer, &width, &height);
 
     SDL_Rect src;
     src.x = data * 8;
@@ -484,26 +481,23 @@ void drawBlock(SDL_Renderer* renderer, struct blockhash* blocks, int b, int x, i
     src.h = 8;
 
     SDL_Rect dst;
-    dst.x = (x * 8 - (int)(camx * 8)) * 2;
-    dst.y = height - (y * 8 - (int)(camy * 8)) * 2 - 16;
+    dst.x = x;
+    dst.y = y;
     dst.w = 16;
     dst.h = 16;
 
     SDL_RenderCopy(renderer, blocks[block].value.tex, &src, &dst);
 }
 
-void drawBlockLog(SDL_Renderer* renderer, struct blockhash* blocks, int b, int x, int y, float camx, float camy) {
+void drawBlockLogPos(SDL_Renderer* renderer, struct blockhash* blocks, int b, int bx, int by, int x, int y) {
     int data = b >> 8;
     int block = b & 0xff;
-
-    int width, height;
-    SDL_GetRendererOutputSize(renderer, &width, &height);
 
     int texRows;
     SDL_QueryTexture(blocks[block].value.tex, NULL, NULL, NULL, &texRows);
     texRows /= 8;
 
-    int row = murmur_hash_combine(x, y) % texRows;
+    int row = murmur_hash_combine(bx, by) % texRows;
 
     SDL_Rect src;
     src.x = 0;
@@ -512,15 +506,15 @@ void drawBlockLog(SDL_Renderer* renderer, struct blockhash* blocks, int b, int x
     src.h = 8;
 
     SDL_Rect dst;
-    dst.x = (x * 8 - (int)(camx * 8)) * 2 - 16;
-    dst.y = height - (y * 8 - (int)(camy * 8)) * 2 - 16;
+    dst.x = x - 16;
+    dst.y = y;
     dst.w = 48;
     dst.h = 16;
 
     SDL_RenderCopy(renderer, blocks[block].value.tex, &src, &dst);
 }
 
-void drawBlockEdges(SDL_Renderer* renderer, struct blockhash* blocks, int b, int x, int y, float camx, float camy) {
+void drawBlockEdgesPos(SDL_Renderer* renderer, struct blockhash* blocks, int b, int bx, int by, int x, int y) {
     int data = b >> 8;
     int block = b & 0xff;
 
@@ -533,10 +527,10 @@ void drawBlockEdges(SDL_Renderer* renderer, struct blockhash* blocks, int b, int
     int bottomLeft = (data >> 14) & 1;
     int bottomRight = (data >> 15) & 1;
 
-    int topLeftTextureId = murmur_hash_combine(x, y) % 16;
-    int topRightTextureId = murmur_hash_combine(x + 29402, y + 3092) % 16;
-    int bottomLeftTextureId = murmur_hash_combine(x + 19163, y - 2939) % 16;
-    int bottomRightTextureId = murmur_hash_combine(x - 29222, y + 23332) % 16;
+    int topLeftTextureId = murmur_hash_combine(bx, by) % 16;
+    int topRightTextureId = murmur_hash_combine(bx + 29402, by + 3092) % 16;
+    int bottomLeftTextureId = murmur_hash_combine(bx + 19163, by - 2939) % 16;
+    int bottomRightTextureId = murmur_hash_combine(bx - 29222, by + 23332) % 16;
 
     if (topLeft || (top && left)) {
         topLeftTextureId = 32;
@@ -571,35 +565,35 @@ void drawBlockEdges(SDL_Renderer* renderer, struct blockhash* blocks, int b, int
     }
 
     if (!left && top) {
-        topLeftTextureId = 16 + murmur_hash_combine(x, y) % 4;
+        topLeftTextureId = 16 + murmur_hash_combine(bx, by) % 4;
     }
     
     if (!right && top) {
-        topRightTextureId = 16 + murmur_hash_combine(x, y) % 4;
+        topRightTextureId = 16 + murmur_hash_combine(bx, by) % 4;
     }
 
     if (!left && bottom) {
-        bottomLeftTextureId = 20 + murmur_hash_combine(x + 29402, y + 3092) % 4;
+        bottomLeftTextureId = 20 + murmur_hash_combine(bx + 29402, by + 3092) % 4;
     }
     
     if (!right && bottom) {
-        bottomRightTextureId = 20 + murmur_hash_combine(x + 29402, y + 3092) % 4;
+        bottomRightTextureId = 20 + murmur_hash_combine(bx + 29402, by + 3092) % 4;
     }
 
     if (!top && left) {
-        topLeftTextureId = 24 + murmur_hash_combine(x + 19163, y - 2939) % 4;
+        topLeftTextureId = 24 + murmur_hash_combine(bx + 19163, by - 2939) % 4;
     }
     
     if (!bottom && left) {
-        bottomLeftTextureId = 24 + murmur_hash_combine(x + 19163, y - 2939) % 4;
+        bottomLeftTextureId = 24 + murmur_hash_combine(bx + 19163, by - 2939) % 4;
     }
 
     if (!top && right) {
-        topRightTextureId = 28 + murmur_hash_combine(x - 29222, y + 23332) % 4;
+        topRightTextureId = 28 + murmur_hash_combine(bx - 29222, by + 23332) % 4;
     }
     
     if (!bottom && right) {
-        bottomRightTextureId = 28 + murmur_hash_combine(x - 29222, y + 23332) % 4;
+        bottomRightTextureId = 28 + murmur_hash_combine(bx - 29222, by + 23332) % 4;
     }
 
     int width, height;
@@ -612,8 +606,8 @@ void drawBlockEdges(SDL_Renderer* renderer, struct blockhash* blocks, int b, int
     topLeftSrc.h = 4;
 
     SDL_Rect topLeftDst;
-    topLeftDst.x = (x * 8 - (int)(camx * 8)) * 2;
-    topLeftDst.y = height - (y * 8 - (int)(camy * 8)) * 2 - 16;
+    topLeftDst.x = x;
+    topLeftDst.y = y;
     topLeftDst.w = 8;
     topLeftDst.h = 8;
 
@@ -624,8 +618,8 @@ void drawBlockEdges(SDL_Renderer* renderer, struct blockhash* blocks, int b, int
     topRightSrc.h = 4;
 
     SDL_Rect topRightDst;
-    topRightDst.x = (x * 8 - (int)(camx * 8)) * 2 + 8;
-    topRightDst.y = height - (y * 8 - (int)(camy * 8)) * 2 - 16;
+    topRightDst.x = x + 8;
+    topRightDst.y = y;
     topRightDst.w = 8;
     topRightDst.h = 8;
 
@@ -636,8 +630,8 @@ void drawBlockEdges(SDL_Renderer* renderer, struct blockhash* blocks, int b, int
     bottomLeftSrc.h = 4;
 
     SDL_Rect bottomLeftDst;
-    bottomLeftDst.x = (x * 8 - (int)(camx * 8)) * 2;
-    bottomLeftDst.y = height - (y * 8 - (int)(camy * 8)) * 2 - 8;
+    bottomLeftDst.x = x;
+    bottomLeftDst.y = y + 8;
     bottomLeftDst.w = 8;
     bottomLeftDst.h = 8;
 
@@ -648,8 +642,8 @@ void drawBlockEdges(SDL_Renderer* renderer, struct blockhash* blocks, int b, int
     bottomRightSrc.h = 4;
 
     SDL_Rect bottomRightDst;
-    bottomRightDst.x = (x * 8 - (int)(camx * 8)) * 2 + 8;
-    bottomRightDst.y = height - (y * 8 - (int)(camy * 8)) * 2 - 8;
+    bottomRightDst.x = x + 8;
+    bottomRightDst.y = y + 8;
     bottomRightDst.w = 8;
     bottomRightDst.h = 8;
 
@@ -659,7 +653,24 @@ void drawBlockEdges(SDL_Renderer* renderer, struct blockhash* blocks, int b, int
     SDL_RenderCopy(renderer, blocks[block].value.tex, &bottomRightSrc, &bottomRightDst);
 }
 
-void drawBlockEdgesFoliage(SDL_Renderer* renderer, struct blockhash* blocks, int b, int x, int y, float camx, float camy) {
+void world_drawBlockPos(SDL_Renderer* renderer, struct blockhash* blocks, int b, int bx, int by, int x, int y) {
+    if (blocks[b & 0xff].value.shape == shape_edges) {
+        drawBlockEdgesPos(renderer, blocks, b, bx, by, x, y);
+    } else if (blocks[b & 0xff].value.shape == shape_log) {
+        drawBlockLogPos(renderer, blocks, b, bx, by, x, y);
+    } else {
+        drawBasicBlockPos(renderer, blocks, b, bx, by, x, y);
+    }
+}
+
+void drawBlock(SDL_Renderer* renderer, struct blockhash* blocks, int b, int x, int y, float camx, float camy) {
+    int width, height;
+    SDL_GetRendererOutputSize(renderer, &width, &height);
+
+    world_drawBlockPos(renderer, blocks, b, x, y, (x * 8 - (int)(camx * 8)) * 2, height - (y * 8 - (int)(camy * 8)) * 2 - 16);
+}
+
+void drawBlockEdgesFoliagePos(SDL_Renderer* renderer, struct blockhash* blocks, int b, int bx, int by, int x, int y) {
     int data = b >> 8;
     int block = b & 0xff;
 
@@ -680,11 +691,11 @@ void drawBlockEdgesFoliage(SDL_Renderer* renderer, struct blockhash* blocks, int
     texRows /= 4;
 
     if (top) {
-        int tflIdX = murmur_hash_combine(x + 39494, y - 2939) % 6;
-        int tflIdY = murmur_hash_combine(x + 3430, y - 22033) % texRows;
+        int tflIdX = murmur_hash_combine(bx + 39494, by - 2939) % 6;
+        int tflIdY = murmur_hash_combine(bx + 3430, by - 22033) % texRows;
 
-        int tfrIdX = murmur_hash_combine(x - 2939, y + 53939) % 6;
-        int tfrIdY = murmur_hash_combine(x + 66904, y - 22293) % texRows;
+        int tfrIdX = murmur_hash_combine(bx - 2939, by + 53939) % 6;
+        int tfrIdY = murmur_hash_combine(bx + 66904, by - 22293) % texRows;
 
         SDL_Rect tflSrc;
         tflSrc.x = tflIdX * 4;
@@ -693,8 +704,8 @@ void drawBlockEdgesFoliage(SDL_Renderer* renderer, struct blockhash* blocks, int
         tflSrc.h = 4;
 
         SDL_Rect tflDst;
-        tflDst.x = (x * 8 - (int)(camx * 8)) * 2;
-        tflDst.y = height - (y * 8 - (int)(camy * 8)) * 2 - 24;
+        tflDst.x = x;
+        tflDst.y = y - 8;
         tflDst.w = 8;
         tflDst.h = 8;
 
@@ -705,8 +716,8 @@ void drawBlockEdgesFoliage(SDL_Renderer* renderer, struct blockhash* blocks, int
         tfrSrc.h = 4;
 
         SDL_Rect tfrDst;
-        tfrDst.x = (x * 8 - (int)(camx * 8)) * 2 + 8;
-        tfrDst.y = height - (y * 8 - (int)(camy * 8)) * 2 - 24;
+        tfrDst.x = x + 8;
+        tfrDst.y = y - 8;
         tfrDst.w = 8;
         tfrDst.h = 8;
 
@@ -715,11 +726,11 @@ void drawBlockEdgesFoliage(SDL_Renderer* renderer, struct blockhash* blocks, int
     }
 
     if (bottom) {
-        int bflIdX = murmur_hash_combine(x + 22344, y - 39393) % 6 + 12;
-        int bflIdY = murmur_hash_combine(x + 39393, y - 2234) % texRows;
+        int bflIdX = murmur_hash_combine(bx + 22344, by - 39393) % 6 + 12;
+        int bflIdY = murmur_hash_combine(bx + 39393, by - 2234) % texRows;
 
-        int bfrIdX = murmur_hash_combine(x - 55533, y + 2282) % 6 + 12;
-        int bfrIdY = murmur_hash_combine(x + 7764, y - 32929) % texRows;
+        int bfrIdX = murmur_hash_combine(bx - 55533, by + 2282) % 6 + 12;
+        int bfrIdY = murmur_hash_combine(bx + 7764, by - 32929) % texRows;
 
         SDL_Rect bflSrc;
         bflSrc.x = bflIdX * 4;
@@ -728,8 +739,8 @@ void drawBlockEdgesFoliage(SDL_Renderer* renderer, struct blockhash* blocks, int
         bflSrc.h = 4;
 
         SDL_Rect bflDst;
-        bflDst.x = (x * 8 - (int)(camx * 8)) * 2;
-        bflDst.y = height - (y * 8 - (int)(camy * 8)) * 2;
+        bflDst.x = x;
+        bflDst.y = y + 16;
         bflDst.w = 8;
         bflDst.h = 8;
 
@@ -740,8 +751,8 @@ void drawBlockEdgesFoliage(SDL_Renderer* renderer, struct blockhash* blocks, int
         bfrSrc.h = 4;
 
         SDL_Rect bfrDst;
-        bfrDst.x = (x * 8 - (int)(camx * 8)) * 2 + 8;
-        bfrDst.y = height - (y * 8 - (int)(camy * 8)) * 2;
+        bfrDst.x = x + 8;
+        bfrDst.y = y + 16;
         bfrDst.w = 8;
         bfrDst.h = 8;
 
@@ -750,11 +761,11 @@ void drawBlockEdgesFoliage(SDL_Renderer* renderer, struct blockhash* blocks, int
     }
 
     if (left) {
-        int tflIdX = murmur_hash_combine(x + 3442, y - 20303) % 6 + 18;
-        int tflIdY = murmur_hash_combine(x + 2202, y - 22020) % texRows;
+        int tflIdX = murmur_hash_combine(bx + 3442, by - 20303) % 6 + 18;
+        int tflIdY = murmur_hash_combine(bx + 2202, by - 22020) % texRows;
 
-        int bflIdX = murmur_hash_combine(x - 7547, y + 22293) % 6 + 18;
-        int bflIdY = murmur_hash_combine(x + 292, y - 50594) % texRows;
+        int bflIdX = murmur_hash_combine(bx - 7547, by + 22293) % 6 + 18;
+        int bflIdY = murmur_hash_combine(bx + 292, by - 50594) % texRows;
 
         SDL_Rect tflSrc;
         tflSrc.x = tflIdX * 4;
@@ -763,8 +774,8 @@ void drawBlockEdgesFoliage(SDL_Renderer* renderer, struct blockhash* blocks, int
         tflSrc.h = 4;
 
         SDL_Rect tflDst;
-        tflDst.x = (x * 8 - (int)(camx * 8)) * 2 - 8;
-        tflDst.y = height - (y * 8 - (int)(camy * 8)) * 2 - 16;
+        tflDst.x = x - 8;
+        tflDst.y = y;
         tflDst.w = 8;
         tflDst.h = 8;
 
@@ -775,8 +786,8 @@ void drawBlockEdgesFoliage(SDL_Renderer* renderer, struct blockhash* blocks, int
         bflSrc.h = 4;
 
         SDL_Rect bflDst;
-        bflDst.x = (x * 8 - (int)(camx * 8)) * 2 - 8;
-        bflDst.y = height - (y * 8 - (int)(camy * 8)) * 2 - 8;
+        bflDst.x = x - 8;
+        bflDst.y = y + 8;
         bflDst.w = 8;
         bflDst.h = 8;
 
@@ -785,11 +796,11 @@ void drawBlockEdgesFoliage(SDL_Renderer* renderer, struct blockhash* blocks, int
     }
 
     if (right) {
-        int tfrIdX = murmur_hash_combine(x + 2202, y - 22020) % 6 + 6;
-        int tfrIdY = murmur_hash_combine(x + 2233, y - 49329) % texRows;
+        int tfrIdX = murmur_hash_combine(bx + 2202, by - 22020) % 6 + 6;
+        int tfrIdY = murmur_hash_combine(bx + 2233, by - 49329) % texRows;
         
-        int bfrIdX = murmur_hash_combine(x - 5553, y + 3939) % 6 + 6;
-        int bfrIdY = murmur_hash_combine(x + 2202, y - 5549) % texRows;
+        int bfrIdX = murmur_hash_combine(bx - 5553, by + 3939) % 6 + 6;
+        int bfrIdY = murmur_hash_combine(bx + 2202, by - 5549) % texRows;
 
         SDL_Rect tfrSrc;
         tfrSrc.x = tfrIdX * 4;
@@ -798,8 +809,8 @@ void drawBlockEdgesFoliage(SDL_Renderer* renderer, struct blockhash* blocks, int
         tfrSrc.h = 4;
 
         SDL_Rect tfrDst;
-        tfrDst.x = (x * 8 - (int)(camx * 8)) * 2 + 16;
-        tfrDst.y = height - (y * 8 - (int)(camy * 8)) * 2 - 16;
+        tfrDst.x = x + 16;
+        tfrDst.y = y;
         tfrDst.w = 8;
         tfrDst.h = 8;
 
@@ -810,14 +821,27 @@ void drawBlockEdgesFoliage(SDL_Renderer* renderer, struct blockhash* blocks, int
         bfrSrc.h = 4;
 
         SDL_Rect bfrDst;
-        bfrDst.x = (x * 8 - (int)(camx * 8)) * 2 + 16;
-        bfrDst.y = height - (y * 8 - (int)(camy * 8)) * 2 - 8;
+        bfrDst.x = x + 16;
+        bfrDst.y = y + 8;
         bfrDst.w = 8;
         bfrDst.h = 8;
 
         SDL_RenderCopy(renderer, blocks[block].value.foliage, &tfrSrc, &tfrDst);
         SDL_RenderCopy(renderer, blocks[block].value.foliage, &bfrSrc, &bfrDst);
     }
+}
+
+void world_drawBlockFoliagePos(SDL_Renderer* renderer, struct blockhash* blocks, int b, int bx, int by, int x, int y) {
+    if (blocks[b & 0xff].value.shape == shape_edges) {
+        drawBlockEdgesFoliagePos(renderer, blocks, b, bx, by, x, y);
+    }
+}
+
+void drawBlockFoliage(SDL_Renderer* renderer, struct blockhash* blocks, int b, int x, int y, float camx, float camy) {
+    int width, height;
+    SDL_GetRendererOutputSize(renderer, &width, &height);
+    
+    world_drawBlockFoliagePos(renderer, blocks, b, x, y, (x * 8 - (int)(camx * 8)) * 2, height - (y * 8 - (int)(camy * 8)) * 2 - 16);
 }
 
 void world_render_range(world* w, int minx, int maxx, int miny, int maxy, float camx, float camy, struct blockhash* blocks, SDL_Renderer* renderer) {
@@ -838,7 +862,7 @@ void world_render_range(world* w, int minx, int maxx, int miny, int maxy, float 
             if (!blocks[w->blocks[x][y][WORLD_LAYER] & 0xff].value.transparent)
                 continue;
             
-            drawBlockEdges(renderer, blocks, b, x, y, camx - (float)width / 32, camy - (float)height / 32);
+            drawBlock(renderer, blocks, b, x, y, camx - (float)width / 32, camy - (float)height / 32);
         }
     }
 
@@ -855,9 +879,7 @@ void world_render_range(world* w, int minx, int maxx, int miny, int maxy, float 
             if (!blocks[w->blocks[x][y][WORLD_LAYER] & 0xff].value.transparent)
                 continue;
             
-            if (blocks[block].value.shape == shape_edges) {
-                drawBlockEdgesFoliage(renderer, blocks, b, x, y, camx - (float)width / 32, camy - (float)height / 32);
-            }
+            drawBlockFoliage(renderer, blocks, b, x, y, camx - (float)width / 32, camy - (float)height / 32);
         }
     }
 
@@ -872,13 +894,7 @@ void world_render_range(world* w, int minx, int maxx, int miny, int maxy, float 
             if (block == 0)
                 continue;
             
-            if (blocks[block].value.shape == shape_edges) {
-                drawBlockEdges(renderer, blocks, b, x, y, camx - (float)width / 32, camy - (float)height / 32);
-            } else if (blocks[block].value.shape == shape_log) {
-                drawBlockLog(renderer, blocks, b, x, y, camx - (float)width / 32, camy - (float)height / 32);
-            } else {
-                drawBlock(renderer, blocks, b, x, y, camx - (float)width / 32, camy - (float)height / 32);
-            }
+            drawBlock(renderer, blocks, b, x, y, camx - (float)width / 32, camy - (float)height / 32);
         }
     }
 
@@ -892,9 +908,7 @@ void world_render_range(world* w, int minx, int maxx, int miny, int maxy, float 
             if (blocks[block].value.foliage == NULL)
                 continue;
             
-            if (blocks[block].value.shape == shape_edges) {
-                drawBlockEdgesFoliage(renderer, blocks, b, x, y, camx - (float)width / 32, camy - (float)height / 32);
-            }
+            drawBlockFoliage(renderer, blocks, b, x, y, camx - (float)width / 32, camy - (float)height / 32);
         }
     }
 }

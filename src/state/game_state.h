@@ -22,6 +22,8 @@ extern float vely;
 extern int playerside;
 extern float playerframe;
 extern float playerGroundTime;
+extern int selectedBlock;
+extern int deleteLayer;
 extern entitystate playerstate;
 extern SDL_Texture* playerParts[6];
 extern SDL_Texture* hat;

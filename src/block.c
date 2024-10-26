@@ -110,6 +110,7 @@ void registerBlock(const char* key, const cJSON* json, Assets *assets) {
     res.collision = collision;
     res.transparent = transparent;
     res.colors = colors;
+    res.layer = layer;
 
     shput(blocks, key, res);
 }

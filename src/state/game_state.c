@@ -18,8 +18,10 @@ float vely = 0;
 int step = 0;
 int playerside = 0;
 int lastGrounded = 0;
+int selectedBlock = 1;
 float playerframe = 0;
 float playerGroundTime = 0;
+int deleteLayer = -1;
 entitystate playerstate = idle;
 SDL_Texture* playerParts[6];
 SDL_Texture* hat;
@@ -64,7 +66,16 @@ void game_state_cleanup(void) {
 }
 
 void game_state_handle_events(SDL_Event e) {
-    
+    if (e.type == SDL_MOUSEWHEEL) {
+        int scrollsign = (e.wheel.y > 0) - (e.wheel.y < 0);
+        selectedBlock += scrollsign;
+        if (selectedBlock >= shlen(blocks)) {
+            selectedBlock = 1;
+        }
+        if (selectedBlock < 1) {
+            selectedBlock = shlen(blocks) - 1;
+        }
+    }
 }
 
 int player_collides(float offx, float offy, float dx, float dy) {
@@ -304,15 +315,30 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
     // }
 
     if (left) {
-        if (world_getblock(&w, x, y) != shgeti(blocks, "game:wood")) {
-            world_setblockanddata(&w, x, y, shgeti(blocks, "game:wood"));
+        int layer = blocks[selectedBlock].value.layer;
+        if (world_getblocklayer(&w, x, y, layer) != selectedBlock) {
+            world_setblockanddatalayer(&w, x, y, layer, selectedBlock);
             world_gendatarange(&w, x - 1, y - 1, x + 2, y + 2);
         }
-    } else if (right) {
-        if (world_getblock(&w, x, y) != shgeti(blocks, "game:air")) {
-            world_setblockanddata(&w, x, y, shgeti(blocks, "game:air"));
-            world_gendatarange(&w, x - 1, y - 1, x + 2, y + 2);
+    }
+    
+    if (right) {
+        if (deleteLayer == -1) {
+            if (world_getblock(&w, x, y) != shgeti(blocks, "game:air")) {
+                deleteLayer = WORLD_LAYER;
+            } else if (world_getwall(&w, x, y) != shgeti(blocks, "game:air")) {
+                deleteLayer = WALL_LAYER;
+            }
         }
+        
+        if (deleteLayer != -1) {
+            if ((world_getblock(&w, x, y) == shgeti(blocks, "game:air") != (deleteLayer == WORLD_LAYER)) && world_getblocklayer(&w, x, y, deleteLayer) != shgeti(blocks, "game:air")) {
+                world_setblockanddatalayer(&w, x, y, deleteLayer, shgeti(blocks, "game:air"));
+                world_gendatarange(&w, x - 1, y - 1, x + 2, y + 2);
+            }
+        }
+    } else {
+        deleteLayer = -1;
     }
 }
 
@@ -422,4 +448,29 @@ void game_state_draw(SDL_Renderer* renderer) {
         SDL_SetRenderDrawColor(renderer, 64, 64, 64, 64);
         SDL_RenderFillRect(renderer, NULL);
     }
+
+    int data = 0;
+
+    if (blocks[selectedBlock].value.shape == shape_edges) {
+        data = 0xFFFF; // 0b1111111111111111
+    }
+
+    SDL_Texture* selectedBlockTex = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, 32, 32);
+    SDL_SetTextureBlendMode(selectedBlockTex, SDL_BLENDMODE_BLEND);
+
+    SDL_SetRenderTarget(renderer, selectedBlockTex);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
+    SDL_RenderClear(renderer);
+
+    world_drawBlockPos(renderer, blocks, selectedBlock | data << 8, 0, 0, 8, 8);
+    world_drawBlockFoliagePos(renderer, blocks, selectedBlock | data << 8, 0, 0, 8, 8);
+    SDL_SetRenderTarget(renderer, NULL);
+
+    SDL_Rect selectedDst;
+    selectedDst.x = 8;
+    selectedDst.y = 8;
+    selectedDst.w = 64;
+    selectedDst.h = 64;
+
+    SDL_RenderCopy(renderer, selectedBlockTex, NULL, &selectedDst);
 }
