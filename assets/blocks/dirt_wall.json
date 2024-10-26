@@ -1,0 +1,9 @@
+{
+    "shape": "edges",
+    "texture": "game:dirt_wall",
+    "foliage": "game:dirt_wall_foliage",
+    "connects": ["game:stone", "game:tin_ore", "game:copper_ore", "game:coal_ore", "game:dirt", "game:grass"],
+    "color": ["#A1662F"],
+    "layer": "wall",
+    "collision": false
+}
