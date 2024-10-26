@@ -835,7 +835,7 @@ void world_render_range(world* w, int minx, int maxx, int miny, int maxy, float 
             if (block == 0)
                 continue;
             
-            if (w->blocks[x][y][WORLD_LAYER] != 0)
+            if (!blocks[w->blocks[x][y][WORLD_LAYER] & 0xff].value.transparent)
                 continue;
             
             drawBlockEdges(renderer, blocks, b, x, y, camx - (float)width / 32, camy - (float)height / 32);
@@ -852,7 +852,7 @@ void world_render_range(world* w, int minx, int maxx, int miny, int maxy, float 
             if (blocks[block].value.foliage == NULL)
                 continue;
             
-            if (w->blocks[x][y][WORLD_LAYER] != 0)
+            if (!blocks[w->blocks[x][y][WORLD_LAYER] & 0xff].value.transparent)
                 continue;
             
             if (blocks[block].value.shape == shape_edges) {

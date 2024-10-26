@@ -14,6 +14,7 @@ block create_block(SDL_Texture* tex, SDL_Texture* foliage, bool transparent, blo
     res.layer = WORLD_LAYER;
     res.shape = shape;
     res.collision = false;
+    res.transparent = transparent;
     res.colors = NULL;
     return res;
 }
@@ -66,6 +67,7 @@ void registerBlock(const char* key, const cJSON* json, Assets *assets) {
     cJSON* shapeJson = cJSON_GetObjectItemCaseSensitive(json, "shape");
     cJSON* colorJson = cJSON_GetObjectItemCaseSensitive(json, "color");
     cJSON* collisionJson = cJSON_GetObjectItemCaseSensitive(json, "collision");
+    cJSON* transparentJson = cJSON_GetObjectItemCaseSensitive(json, "transparent");
     cJSON* layerJson = cJSON_GetObjectItemCaseSensitive(json, "layer");
 
     SDL_Texture* tex = NULL;
@@ -92,6 +94,10 @@ void registerBlock(const char* key, const cJSON* json, Assets *assets) {
     if (collisionJson)
         collision = collisionJson->valueint;
     
+    bool transparent = false;
+    if (transparentJson)
+        transparent = transparentJson->valueint;
+    
     int layer = WORLD_LAYER;
     if (layerJson)
         layer = string_to_layer(layerJson->valuestring);
@@ -102,6 +108,7 @@ void registerBlock(const char* key, const cJSON* json, Assets *assets) {
     res.connects = NULL;
     res.shape = shape;
     res.collision = collision;
+    res.transparent = transparent;
     res.colors = colors;
 
     shput(blocks, key, res);

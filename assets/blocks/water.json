@@ -2,5 +2,6 @@
     "shape": "liquid",
     "texture": "game:water",
     "color": ["#007FFF"],
-    "collision": false
+    "collision": false,
+    "transparent": true
 }

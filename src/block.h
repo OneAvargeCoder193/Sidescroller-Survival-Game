@@ -22,6 +22,7 @@ typedef struct block {
     int layer;
     blockshape shape;
     bool collision;
+    bool transparent;
 } block;
 
 struct blockhash {
