@@ -1,6 +1,7 @@
 {
     "shape": "edges",
     "texture": "game:glass",
+    "foliage": "game:glass_foliage",
     "color": ["#FFFFFF"],
     "collision": true,
     "transparent": true
