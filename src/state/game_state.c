@@ -53,6 +53,12 @@ void game_state_init(void) {
     sunRing = shget(assets.textures, "game:sun_ring");
 
     playery = (int)w.heightMap[(int)playerx] + 1;
+    
+    float renplayerx = floorf(playerx * 8) / 8;
+    float renplayery = floorf(playery * 8) / 8;
+
+    camx = renplayerx;
+    camy = renplayery;
 
     weatherState = weather_clear;
     weatherTime = rand() % 4000 + 800;
@@ -377,8 +383,8 @@ void game_state_draw(SDL_Renderer* renderer) {
     float renplayerx = floorf(playerx * 8) / 8;
     float renplayery = floorf(playery * 8) / 8;
     
-    camx = fmaxf(fminf(renplayerx, WORLD_WIDTH - (float)width / 32), (float)width / 32);
-    camy = fmaxf(fminf(renplayery, WORLD_HEIGHT - (float)height / 32), (float)height / 32);
+    camx += (fmaxf(fminf(renplayerx, WORLD_WIDTH - (float)width / 32), (float)width / 32) - camx) / 5.0;
+    camy += (fmaxf(fminf(renplayery, WORLD_HEIGHT - (float)height / 32), (float)height / 32) - camy) / 5.0;
 
     SDL_Rect sunDst;
     sunDst.x = width / 2 - 128;
