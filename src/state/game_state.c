@@ -18,7 +18,7 @@ float vely = 0;
 int step = 0;
 int playerside = 0;
 int lastGrounded = 0;
-int selectedBlock = 0;
+int selectedBlock = 1;
 float playerframe = 0;
 float playerGroundTime = 0;
 int deleteLayer = -1;
@@ -70,9 +70,9 @@ void game_state_handle_events(SDL_Event e) {
         int scrollsign = (e.wheel.y > 0) - (e.wheel.y < 0);
         selectedBlock += scrollsign;
         if (selectedBlock >= shlen(blocks)) {
-            selectedBlock = 0;
+            selectedBlock = 1;
         }
-        if (selectedBlock < 0) {
+        if (selectedBlock < 1) {
             selectedBlock = shlen(blocks) - 1;
         }
     }
