@@ -146,10 +146,10 @@ int move_player(float dx, float dy, int* grounded) {
 }
 
 void game_state_update(SDL_Renderer* renderer, float delta) {
-    // if (Mix_PlayingMusic() == 0) {
-    //     Mix_PlayMusic(music, -1);
-    //     Mix_VolumeMusic(32);
-    // }
+    if (Mix_PlayingMusic() == 0) {
+        Mix_PlayMusic(music, -1);
+        Mix_VolumeMusic(32);
+    }
 
     const uint8_t* keys = SDL_GetKeyboardState(NULL);
 
