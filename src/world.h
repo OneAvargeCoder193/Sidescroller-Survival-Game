@@ -57,6 +57,7 @@ typedef struct world {
 extern world w;
 
 world world_init(struct blockhash* blocks);
+void world_deinit(world* w);
 
 void world_genblock(world* w);
 void world_gendata(world* w);

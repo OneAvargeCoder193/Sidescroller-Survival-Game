@@ -69,6 +69,7 @@ void game_state_init(void) {
 void game_state_cleanup(void) {
     arrfree(raindrops);
     Mix_FreeMusic(music);
+    world_deinit(&w);
 }
 
 void game_state_handle_events(SDL_Event e) {

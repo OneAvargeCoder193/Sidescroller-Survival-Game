@@ -99,6 +99,10 @@ world world_init(struct blockhash* blocks) {
     return w;
 }
 
+void world_deinit(world* w) {
+    arrfree(w->updateLightingPos);
+}
+
 void world_genblock(world* w) {
     int i = w->genIdx;
 
