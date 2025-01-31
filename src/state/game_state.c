@@ -194,9 +194,16 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
             step = rand() % 2048 == 0;
         }
     } else if (playerstate == walking) {
-        playerframe += fabsf(moveX / accel * maxSpeed) * 4 * delta;
-        if (playerframe >= 21) {
-            playerframe -= 12;
+        if ((moveX < 0 && playerside == 0) || (moveX > 0 && playerside == 1)) {
+            playerframe -= fabsf(moveX / accel * maxSpeed) * 4 * delta;
+            if (playerframe < 9) {
+                playerframe += 12;
+            }
+        } else {
+            playerframe += fabsf(moveX / accel * maxSpeed) * 4 * delta;
+            if (playerframe >= 21) {
+                playerframe -= 12;
+            }
         }
     } else if (playerstate == jumping) {
         playerframe = 5;
@@ -205,12 +212,6 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
         if (playerframe >= 9) {
             playerframe = 8;
         }
-    }
-
-    if (moveX < 0) {
-        playerside = 1;
-    } else if (moveX > 0) {
-        playerside = 0;
     }
 
     if (playerstate == walking || playerstate == idle) {
@@ -274,6 +275,17 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
 
     int x, y;
     int state = SDL_GetMouseState(&x, &y);
+    
+    float renplayerx = floorf(playerx * 8) / 8;
+    int playerScreenX = (renplayerx - camx) * 16 + width / 2.0 - 32;
+
+    if (moveX != 0) {
+        if (x < playerScreenX) {
+            playerside = 1;
+        } else {
+            playerside = 0;
+        }
+    }
 
     int left = state & SDL_BUTTON(SDL_BUTTON_LEFT);
     int right = state & SDL_BUTTON(SDL_BUTTON_RIGHT);
