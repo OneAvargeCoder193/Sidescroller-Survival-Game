@@ -5,9 +5,10 @@
 #include "stb_ds.h"
 
 uint32_t world_blocks[WORLD_WIDTH][WORLD_HEIGHT][2];
+uint8_t world_light[WORLD_WIDTH][WORLD_HEIGHT];
 float world_heightmap[WORLD_WIDTH];
 
-world w = {NULL, {0}, NULL, 0, 0, 0, NULL, NULL, {0}, {0}, genEmpty};
+world w = {NULL, NULL, {0}, NULL, 0, 0, 0, NULL, NULL, {0}, {0}, genEmpty};
 
 int connectBlock(int a, int b) {
     return blocks[a].value.connects[b];
@@ -56,11 +57,13 @@ struct ffp* floodfill(world* w, int x, int y, int block) {
 world world_init(struct blockhash* blocks) {
     world w = {0};
     w.blocks = world_blocks;
+    w.light = world_light;
     w.heightMap = world_heightmap;
     w.genIdx = 0;
     w.genMax = WORLD_WIDTH * WORLD_HEIGHT;
     w.finishedGen = false;
     w.finishedGenData = false;
+    w.updateLightingPos = NULL;
     w.fillWaterPos = NULL;
     w.waterpos = NULL;
     w.generateState = genBlocks;
@@ -268,8 +271,11 @@ void world_addvegetation(world* w) {
         w->finishedGen = true;
         w->genIdx = 0;
         w->genMax = WORLD_WIDTH * WORLD_HEIGHT;
-        w->generateState = genData;
+        w->generateState = genLight;
         arrfree(w->fillWaterPos);
+        for (int x = 0; x < WORLD_WIDTH; x++) {
+            arrput(w->updateLightingPos, x);
+        }
         return;
     }
 
@@ -361,6 +367,94 @@ void world_gendatarange(world* w, int minx, int miny, int maxx, int maxy) {
     }
 }
 
+struct genLightPoint {
+    int x;
+    int y;
+    int light;
+};
+
+void world_genlight(world* w) {
+    struct genLightPoint* light = NULL;
+    int minx = WORLD_WIDTH;
+    int maxx = -1;
+    while (arrlen(w->updateLightingPos)) {
+        struct genLightPoint start = {arrpop(w->updateLightingPos), WORLD_HEIGHT - 1, 255};
+        arrput(light, start);
+        if (start.x < minx) {
+            minx = start.x;
+        }
+        if (start.x > maxx) {
+            maxx = start.x;
+        }
+        memset(world_light[start.x], 0, sizeof(world_light[start.x]));
+    }
+
+    if (minx != 0) {
+        for (int y = 0; y < WORLD_HEIGHT; y++) {
+            struct genLightPoint start = {minx - 1, y, w->light[minx - 1][y]};
+            arrput(light, start);
+        }
+    }
+
+    if (maxx != WORLD_HEIGHT - 1) {
+        for (int y = 0; y < WORLD_HEIGHT; y++) {
+            struct genLightPoint start = {maxx + 1, y, w->light[maxx + 1][y]};
+            arrput(light, start);
+        }
+    }
+
+    while (arrlen(light) != 0) {
+        struct genLightPoint point = arrpop(light);
+
+        w->light[point.x][point.y] = point.light;
+
+        int b = world_getblock(w, point.x, point.y);
+
+        if (point.x != 0) {
+            int newLight = blocks[b].value.transparent ? point.light - 17 : point.light - 51;
+
+            if (newLight > w->light[point.x - 1][point.y]) {
+                struct genLightPoint new = {point.x - 1, point.y, newLight};
+                arrput(light, new);
+            }
+        }
+
+        if (point.x != WORLD_WIDTH - 1) {
+            int newLight = blocks[b].value.transparent ? point.light - 17 : point.light - 51;
+
+            if (newLight > w->light[point.x + 1][point.y]) {
+                struct genLightPoint new = {point.x + 1, point.y, newLight};
+                arrput(light, new);
+            }
+        }
+
+        if (point.y != 0) {
+            int newLight = blocks[b].value.transparent ? point.light : point.light - 51;
+
+            if (newLight > w->light[point.x][point.y - 1]) {
+                struct genLightPoint new = {point.x, point.y - 1, newLight};
+                arrput(light, new);
+            }
+        }
+
+        if (point.y != WORLD_HEIGHT - 1) {
+            int newLight = blocks[b].value.transparent ? point.light : point.light - 51;
+
+            if (newLight > w->light[point.x][point.y + 1]) {
+                struct genLightPoint new = {point.x, point.y + 1, newLight};
+                arrput(light, new);
+            }
+        }
+    }
+
+    arrfree(light);
+    
+    w->finishedGen = true;
+    w->genIdx = 0;
+    w->genMax = WORLD_WIDTH * WORLD_HEIGHT;
+    w->generateState = genData;
+}
+
 uint8_t world_getblock(world* w, int x, int y) {
     if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
         return 1;
@@ -419,6 +513,18 @@ void world_setblock(world* w, int x, int y, uint8_t v) {
     if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
         return;
     w->blocks[x][y][WORLD_LAYER] = w->blocks[x][y][WORLD_LAYER] & ~0xff | v;
+    
+    for (int i = x - 18; i < x + 18; i++) {
+        bool has = false;
+        for (int j = 0; j < arrlen(w->updateLightingPos); j++) {
+            if (w->updateLightingPos[j] == i) {
+                has = true;
+                break;
+            }
+        }
+        if (has) break;
+        arrput(w->updateLightingPos, i);
+    }
 }
 
 void world_setblockdata(world* w, int x, int y, uint32_t v) {
@@ -431,6 +537,17 @@ void world_setblockanddata(world* w, int x, int y, uint32_t v) {
     if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
         return;
     w->blocks[x][y][WORLD_LAYER] = v;
+    for (int i = x - 18; i < x + 18; i++) {
+        bool has = false;
+        for (int j = 0; j < arrlen(w->updateLightingPos); j++) {
+            if (w->updateLightingPos[j] == i) {
+                has = true;
+                break;
+            }
+        }
+        if (has) break;
+        arrput(w->updateLightingPos, i);
+    }
 }
 
 void world_setwall(world* w, int x, int y, uint8_t v) {
@@ -456,6 +573,19 @@ void world_setblocklayer(world* w, int x, int y, int layer, uint8_t v) {
     if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
         return;
     w->blocks[x][y][layer] = w->blocks[x][y][layer] & ~0xff | v;
+    if (layer == WORLD_LAYER) {
+        for (int i = x - 17; i < x + 17; i++) {
+            bool has = false;
+            for (int j = 0; j < arrlen(w->updateLightingPos); j++) {
+                if (w->updateLightingPos[j] == i) {
+                    has = true;
+                    break;
+                }
+            }
+            if (has) break;
+            arrput(w->updateLightingPos, i);
+        }
+    }
 }
 
 void world_setblockdatalayer(world* w, int x, int y, int layer, uint32_t v) {
@@ -468,6 +598,19 @@ void world_setblockanddatalayer(world* w, int x, int y, int layer, uint32_t v) {
     if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT)
         return;
     w->blocks[x][y][layer] = v;
+    if (layer == WORLD_LAYER) {
+        for (int i = x - 17; i < x + 17; i++) {
+            bool has = false;
+            for (int j = 0; j < arrlen(w->updateLightingPos); j++) {
+                if (w->updateLightingPos[j] == i) {
+                    has = true;
+                    break;
+                }
+            }
+            if (has) break;
+            arrput(w->updateLightingPos, i);
+        }
+    }
 }
 
 void drawBasicBlockPos(SDL_Renderer* renderer, struct blockhash* blocks, int b, int bx, int by, int x, int y) {
@@ -653,7 +796,9 @@ void drawBlockEdgesPos(SDL_Renderer* renderer, struct blockhash* blocks, int b, 
     SDL_RenderCopy(renderer, blocks[block].value.tex, &bottomRightSrc, &bottomRightDst);
 }
 
-void world_drawBlockPos(SDL_Renderer* renderer, struct blockhash* blocks, int b, int bx, int by, int x, int y) {
+void world_drawBlockPos(SDL_Renderer* renderer, struct blockhash* blocks, int b, uint8_t light, int bx, int by, int x, int y) {
+    SDL_SetTextureColorMod(blocks[b & 0xff].value.tex, light, light, light);
+
     if (blocks[b & 0xff].value.shape == shape_edges) {
         drawBlockEdgesPos(renderer, blocks, b, bx, by, x, y);
     } else if (blocks[b & 0xff].value.shape == shape_log) {
@@ -663,14 +808,14 @@ void world_drawBlockPos(SDL_Renderer* renderer, struct blockhash* blocks, int b,
     }
 }
 
-void drawBlock(SDL_Renderer* renderer, struct blockhash* blocks, int b, int x, int y, float camx, float camy) {
+void drawBlock(SDL_Renderer* renderer, struct blockhash* blocks, int b, uint8_t light, int x, int y, float camx, float camy) {
     int width, height;
     SDL_GetRendererOutputSize(renderer, &width, &height);
 
-    world_drawBlockPos(renderer, blocks, b, x, y, (x * 8 - (int)(camx * 8)) * 2, height - (y * 8 - (int)(camy * 8)) * 2 - 16);
+    world_drawBlockPos(renderer, blocks, b, light, x, y, (x * 8 - (int)(camx * 8)) * 2, height - (y * 8 - (int)(camy * 8)) * 2 - 16);
 }
 
-void drawBlockEdgesFoliagePos(SDL_Renderer* renderer, struct blockhash* blocks, int b, int bx, int by, int x, int y) {
+void drawBlockEdgesFoliagePos(SDL_Renderer* renderer, struct blockhash* blocks, int b, uint8_t light, int bx, int by, int x, int y) {
     int data = b >> 8;
     int block = b & 0xff;
 
@@ -689,6 +834,8 @@ void drawBlockEdgesFoliagePos(SDL_Renderer* renderer, struct blockhash* blocks, 
     int texRows;
     SDL_QueryTexture(blocks[block].value.foliage, NULL, NULL, NULL, &texRows);
     texRows /= 4;
+
+    SDL_SetTextureColorMod(blocks[block].value.foliage, light, light, light);
 
     if (top) {
         int tflIdX = murmur_hash_combine(bx + 39494, by - 2939) % 6;
@@ -831,17 +978,17 @@ void drawBlockEdgesFoliagePos(SDL_Renderer* renderer, struct blockhash* blocks, 
     }
 }
 
-void world_drawBlockFoliagePos(SDL_Renderer* renderer, struct blockhash* blocks, int b, int bx, int by, int x, int y) {
+void world_drawBlockFoliagePos(SDL_Renderer* renderer, struct blockhash* blocks, int b, uint8_t light, int bx, int by, int x, int y) {
     if (blocks[b & 0xff].value.shape == shape_edges) {
-        drawBlockEdgesFoliagePos(renderer, blocks, b, bx, by, x, y);
+        drawBlockEdgesFoliagePos(renderer, blocks, b, light, bx, by, x, y);
     }
 }
 
-void drawBlockFoliage(SDL_Renderer* renderer, struct blockhash* blocks, int b, int x, int y, float camx, float camy) {
+void drawBlockFoliage(SDL_Renderer* renderer, struct blockhash* blocks, int b, uint8_t light, int x, int y, float camx, float camy) {
     int width, height;
     SDL_GetRendererOutputSize(renderer, &width, &height);
     
-    world_drawBlockFoliagePos(renderer, blocks, b, x, y, (x * 8 - (int)(camx * 8)) * 2, height - (y * 8 - (int)(camy * 8)) * 2 - 16);
+    world_drawBlockFoliagePos(renderer, blocks, b, light, x, y, (x * 8 - (int)(camx * 8)) * 2, height - (y * 8 - (int)(camy * 8)) * 2 - 16);
 }
 
 void world_render_range(world* w, int minx, int maxx, int miny, int maxy, float camx, float camy, struct blockhash* blocks, SDL_Renderer* renderer) {
@@ -862,7 +1009,9 @@ void world_render_range(world* w, int minx, int maxx, int miny, int maxy, float 
             if (!blocks[w->blocks[x][y][WORLD_LAYER] & 0xff].value.transparent)
                 continue;
             
-            drawBlock(renderer, blocks, b, x, y, camx - (float)width / 32, camy - (float)height / 32);
+            int light = w->light[x][y];
+
+            drawBlock(renderer, blocks, b, light, x, y, camx - (float)width / 32, camy - (float)height / 32);
         }
     }
 
@@ -879,7 +1028,9 @@ void world_render_range(world* w, int minx, int maxx, int miny, int maxy, float 
             if (!blocks[w->blocks[x][y][WORLD_LAYER] & 0xff].value.transparent)
                 continue;
             
-            drawBlockFoliage(renderer, blocks, b, x, y, camx - (float)width / 32, camy - (float)height / 32);
+            int light = w->light[x][y];
+            
+            drawBlockFoliage(renderer, blocks, b, light, x, y, camx - (float)width / 32, camy - (float)height / 32);
         }
     }
 
@@ -894,7 +1045,9 @@ void world_render_range(world* w, int minx, int maxx, int miny, int maxy, float 
             if (block == 0)
                 continue;
             
-            drawBlock(renderer, blocks, b, x, y, camx - (float)width / 32, camy - (float)height / 32);
+            int light = w->light[x][y];
+            
+            drawBlock(renderer, blocks, b, light, x, y, camx - (float)width / 32, camy - (float)height / 32);
         }
     }
 
@@ -908,7 +1061,9 @@ void world_render_range(world* w, int minx, int maxx, int miny, int maxy, float 
             if (blocks[block].value.foliage == NULL)
                 continue;
             
-            drawBlockFoliage(renderer, blocks, b, x, y, camx - (float)width / 32, camy - (float)height / 32);
+            int light = w->light[x][y];
+            
+            drawBlockFoliage(renderer, blocks, b, light, x, y, camx - (float)width / 32, camy - (float)height / 32);
         }
     }
 }
@@ -1126,6 +1281,8 @@ void world_load(world* w, FILE* in) {
     }
 
     hmfree(loadblocks);
+
+    world_genlight(w);
 }
 
 void save_world_to_png(world* w, SDL_Renderer* renderer, char* out) {

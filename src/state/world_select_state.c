@@ -121,7 +121,7 @@ void world_select_state_draw(SDL_Renderer* renderer) {
     
     if (render_button(renderer, 24, height - 152 - 24, "Singleplayer", 48, (SDL_Color){255, 255, 255, 255}, font, XALIGN_LEFT, YALIGN_CENTER)) {
         w = world_init(blocks);
-        strcpy(w.path, "save.bin");
+        strcpy(w.path, "worlds/save.bin");
         
         state_set(STATE_LOADING);
     }

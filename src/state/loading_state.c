@@ -44,6 +44,9 @@ void loading_state_update(SDL_Renderer* renderer, float delta) {
             case genVegetation:
                 world_addvegetation(&w);
                 break;
+            case genLight:
+                world_genlight(&w);
+                break;
             case genData:
                 world_gendata(&w);
                 break;
@@ -97,6 +100,9 @@ void loading_state_draw(SDL_Renderer* renderer) {
         break;
     case genVegetation:
         text = "Adding Vegetation";
+        break;
+    case genLight:
+        text = "Adding light";
         break;
     case genData:
         text = "Finishing up";

@@ -155,8 +155,12 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
 
     int save = (keys[SDL_SCANCODE_LCTRL] || keys[SDL_SCANCODE_RCTRL]) && keys[SDL_SCANCODE_S];
     if (save) {
-        FILE* out = fopen(w.path, "wb");
-        world_save(&w, out);
+        FILE* out = fopen(w.path, "wb+");
+        if (errno != 0) {
+            printf("Failed to save world: %s\n", strerror(errno));
+        } else {
+            world_save(&w, out);
+        }
         fclose(out);
     }
 
@@ -346,6 +350,10 @@ void game_state_update(SDL_Renderer* renderer, float delta) {
     } else {
         deleteLayer = -1;
     }
+
+    if (arrlen(w.updateLightingPos) != 0) {
+        world_genlight(&w);
+    }
 }
 
 float calculate_sun_coverage(SDL_Rect r, int width, int height) {
@@ -468,8 +476,8 @@ void game_state_draw(SDL_Renderer* renderer) {
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
     SDL_RenderClear(renderer);
 
-    world_drawBlockPos(renderer, blocks, selectedBlock | data << 8, 0, 0, 8, 8);
-    world_drawBlockFoliagePos(renderer, blocks, selectedBlock | data << 8, 0, 0, 8, 8);
+    world_drawBlockPos(renderer, blocks, selectedBlock | data << 8, 0xff, 0, 0, 8, 8);
+    world_drawBlockFoliagePos(renderer, blocks, selectedBlock | data << 8, 0xff, 0, 0, 8, 8);
     SDL_SetRenderTarget(renderer, NULL);
 
     SDL_Rect selectedDst;

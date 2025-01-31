@@ -25,6 +25,7 @@ enum worldstate {
     genPlaceLava,
     genLiquids,
     genVegetation,
+    genLight,
     genData,
     genDone
 };
@@ -37,12 +38,14 @@ extern float world_heightmap[WORLD_WIDTH];
 
 typedef struct world {
     uint32_t (*blocks)[WORLD_HEIGHT][2];
+    uint8_t (*light)[WORLD_HEIGHT];
     char path[260];
     float *heightMap;
     int genIdx;
     int genMax;
     bool finishedGen;
     bool finishedGenData;
+    int* updateLightingPos;
     struct ffp* fillWaterPos;
     struct ffp* waterpos;
     fnl_state n;
@@ -64,8 +67,10 @@ void world_addvegetation(world* w);
 void world_updatedata(world* w, int x, int y, int layer);
 void world_gendatarange(world* w, int minx, int miny, int maxx, int maxy);
 
-void world_drawBlockPos(SDL_Renderer* renderer, struct blockhash* blocks, int b, int bx, int by, int x, int y);
-void world_drawBlockFoliagePos(SDL_Renderer* renderer, struct blockhash* blocks, int b, int bx, int by, int x, int y);
+void world_genlight(world* w);
+
+void world_drawBlockPos(SDL_Renderer* renderer, struct blockhash* blocks, int b, uint8_t light, int bx, int by, int x, int y);
+void world_drawBlockFoliagePos(SDL_Renderer* renderer, struct blockhash* blocks, int b, uint8_t light, int bx, int by, int x, int y);
 
 uint8_t world_getblock(world* w, int x, int y);
 uint32_t world_getblockdata(world* w, int x, int y);
